@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "智能衣柜",
+    "slug": "smart-wardrobe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartwardrobe.app"
+    },
+    "android": {
+      "package": "com.smartwardrobe.app"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "允许智能衣柜访问相机拍摄衣物照片",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允许智能衣柜访问相册选择衣物照片",
+          "savePhotosPermission": "允许智能衣柜保存衣物照片到相册",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许智能衣柜访问相册选择衣物照片",
+          "cameraPermission": "允许智能衣柜使用相机拍摄衣物照片"
+        }
+      ]
+    ]
+  }
+} 
