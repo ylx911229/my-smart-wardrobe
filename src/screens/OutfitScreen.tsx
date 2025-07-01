@@ -28,6 +28,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { useDatabase } from '../services/DatabaseContext';
 import EmptyState from '../components/EmptyState';
+import OutfitCard from '../components/OutfitCard';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, Outfit, User } from '../types';
 
@@ -42,11 +43,7 @@ interface OutfitScreenProps {
   navigation: OutfitScreenNavigationProp;
 }
 
-interface OutfitCardProps {
-  item: Outfit;
-  onPress: (item: Outfit) => void;
-  style?: any;
-}
+
 
 const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
   const { outfits: dbOutfits } = useDatabase();
@@ -142,58 +139,10 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
     <OutfitCard
       item={item}
       onPress={() => handleOutfitPress(item)}
-      style={styles.cardContainer}
     />
   );
 
-  const OutfitCard = ({ item, onPress, style }: OutfitCardProps) => (
-    <TouchableOpacity onPress={() => onPress(item)} style={[styles.cardContainer, style]}>
-      <Card style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
-            <Title style={styles.outfitName} numberOfLines={1}>
-              {item.name || '未命名搭配'}
-            </Title>
-            <Text style={styles.outfitDate}>
-              {item.created_at ? new Date(item.created_at).toLocaleDateString('zh-CN') : 
-               new Date(item.createdAt).toLocaleDateString('zh-CN')}
-            </Text>
-          </View>
-          <View style={styles.cardHeaderRight}>
-            {item.is_favorite && (
-              <Ionicons name="heart" size={20} color={theme.colors.error} />
-            )}
-            <Text style={styles.userName}>我</Text>
-          </View>
-        </View>
 
-        {item.photo_uri && (
-          <Image source={{ uri: item.photo_uri }} style={styles.outfitImage} />
-        )}
-
-        <Card.Content style={styles.cardContent}>
-          <View style={styles.outfitDetails}>
-            {item.occasion && (
-              <Chip style={styles.detailChip} textStyle={styles.chipText}>
-                {item.occasion}
-              </Chip>
-            )}
-            {item.weather && (
-              <Chip style={styles.detailChip} textStyle={styles.chipText}>
-                {item.weather}
-              </Chip>
-            )}
-          </View>
-          
-          {item.notes && (
-            <Paragraph style={styles.outfitNotes} numberOfLines={2}>
-              {item.notes}
-            </Paragraph>
-          )}
-        </Card.Content>
-      </Card>
-    </TouchableOpacity>
-  );
 
   return (
     <View style={styles.container}>
@@ -245,20 +194,22 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
           style={styles.userFilterContainer}
           contentContainerStyle={styles.userFilterContent}
         >
-          {users.map((user) => (
-            <Chip
-              key={user.id}
-              selected={selectedUser?.id === user.id}
-              onPress={() => handleUserFilter(user)}
-              style={[
-                styles.userChip,
-                selectedUser?.id === user.id && styles.selectedUserChip
-              ]}
-              textStyle={selectedUser?.id === user.id ? styles.selectedUserText : {}}
-            >
-              {user.name}
-            </Chip>
-          ))}
+          {users.map((user) => {
+            return (
+              <Chip
+                key={user.id}
+                selected={selectedUser?.id === user.id}
+                onPress={() => handleUserFilter(user)}
+                style={[
+                  styles.userChip,
+                  selectedUser?.id === user.id && styles.selectedUserChip
+                ]}
+                textStyle={selectedUser?.id === user.id ? styles.selectedUserText : {}}
+                              >
+                  {(user.name && typeof user.name === 'string') ? user.name : '未知用户'}
+                </Chip>
+            );
+          })}
         </ScrollView>
       )}
 
@@ -356,78 +307,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: theme.spacing.md,
   },
-  
-  cardContainer: {
-    flex: 1,
-  },
-  
-  card: {
-    backgroundColor: theme.colors.surface,
-    ...theme.shadows.small,
-  },
-  
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.divider,
-  },
-  
-  cardHeaderLeft: {
-    flex: 1,
-  },
-  
-  cardHeaderRight: {
-    alignItems: 'flex-end',
-  },
-  
-  outfitName: {
-    fontSize: 14,
-    marginBottom: theme.spacing.xs,
-  },
-  
-  outfitDate: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-  },
-  
-  userName: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.xs,
-  },
-  
-  outfitImage: {
-    width: '100%',
-    height: 120,
-    resizeMode: 'cover',
-  },
-  
-  cardContent: {
-    padding: theme.spacing.sm,
-  },
-  
-  outfitDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: theme.spacing.sm,
-  },
-  
-  detailChip: {
-    marginRight: theme.spacing.xs,
-    marginBottom: theme.spacing.xs,
-  },
-  
-  chipText: {
-    fontSize: 10,
-  },
-  
-  outfitNotes: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-  },
+
   
   fab: {
     position: 'absolute',

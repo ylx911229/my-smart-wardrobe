@@ -352,7 +352,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
             loading={loading}
             disabled={loading || !selectedUser}
             style={styles.recommendButton}
-            icon="sparkles"
+            icon="star"
           >
             一键推荐今日穿搭
           </Button>

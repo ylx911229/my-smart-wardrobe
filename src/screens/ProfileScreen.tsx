@@ -157,13 +157,13 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
     {
       title: '数据统计',
       description: '查看您的衣柜数据分析',
-      icon: 'analytics-outline',
+      icon: 'chart-line',
       onPress: () => navigation.navigate('Statistics')
     },
     {
       title: '购物清单',
       description: '查看推荐购买的衣物',
-      icon: 'bag-add-outline',
+      icon: 'shopping',
       onPress: () => navigation.navigate('ShoppingList')
     }
   ];

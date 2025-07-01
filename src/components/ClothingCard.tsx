@@ -17,47 +17,67 @@ const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
     <TouchableOpacity onPress={() => onPress(item)} style={[styles.container, style]}>
       <Card style={styles.card}>
         <View style={styles.imageContainer}>
-          <Image source={{ uri: item.photo_uri }} style={styles.image} />
+          {(() => {
+            const photoUri = (item.photo_uri && typeof item.photo_uri === 'string' && item.photo_uri.trim()) 
+              ? item.photo_uri.trim() 
+              : (item.imageUri && typeof item.imageUri === 'string' && item.imageUri.trim()) 
+              ? item.imageUri.trim() 
+              : '';
+            
+            return photoUri ? (
+              <Image source={{ uri: photoUri }} style={styles.image} />
+            ) : (
+              <View style={[styles.image, styles.placeholderImage]}>
+                <Ionicons name="image-outline" size={40} color={theme.colors.textSecondary} />
+              </View>
+            );
+          })()}
           <View style={styles.overlay}>
             <View style={styles.activityIndicator}>
               <Ionicons 
                 name="flash" 
                 size={12} 
-                color={getActivityColor(item.activity_score || 0)} 
+                color={getActivityColor((typeof item.activity_score === 'number') ? item.activity_score : 0)} 
               />
-              <Text style={[styles.activityText, { color: getActivityColor(item.activity_score || 0) }]}>
-                {item.activity_score || 0}
+              <Text style={[styles.activityText, { color: getActivityColor((typeof item.activity_score === 'number') ? item.activity_score : 0) }]}>
+                {(typeof item.activity_score === 'number') ? item.activity_score : 0}
               </Text>
             </View>
           </View>
         </View>
         
         <Card.Content style={styles.content}>
-          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.name} numberOfLines={1}>
+            {(item.name && typeof item.name === 'string') ? item.name : '未命名衣物'}
+          </Text>
           <Chip 
             style={[styles.categoryChip, { backgroundColor: item.category_color || theme.colors.secondary }]}
             textStyle={styles.categoryText}
           >
-            {item.category_name}
+            {(item.category_name && typeof item.category_name === 'string') 
+              ? item.category_name 
+              : (item.category && typeof item.category === 'string') 
+              ? item.category 
+              : '未分类'}
           </Chip>
           
-          {item.brand && (
-            <Text style={styles.brand} numberOfLines={1}>{item.brand}</Text>
+          {(item.brand && typeof item.brand === 'string' && item.brand.trim()) && (
+            <Text style={styles.brand} numberOfLines={1}>{item.brand.trim()}</Text>
           )}
           
           <View style={styles.details}>
-            {item.color && (
-              <Text style={styles.detailText}>{item.color}</Text>
+            {(item.color && typeof item.color === 'string' && item.color.trim()) && (
+              <Text style={styles.detailText}>{item.color.trim()}</Text>
             )}
-            {item.size && (
-              <Text style={styles.detailText}>{item.size}</Text>
+            {(item.size && typeof item.size === 'string' && item.size.trim()) && (
+              <Text style={styles.detailText}>{item.size.trim()}</Text>
             )}
           </View>
           
-          {item.location && (
+          {(item.location && typeof item.location === 'string' && item.location.trim()) && (
             <View style={styles.locationContainer}>
               <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
-              <Text style={styles.locationText} numberOfLines={1}>{item.location}</Text>
+              <Text style={styles.locationText} numberOfLines={1}>{item.location.trim()}</Text>
             </View>
           )}
         </Card.Content>
@@ -86,6 +106,12 @@ const styles = StyleSheet.create({
     height: '100%',
     borderTopLeftRadius: theme.roundness,
     borderTopRightRadius: theme.roundness,
+  },
+  
+  placeholderImage: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
   },
   
   overlay: {
