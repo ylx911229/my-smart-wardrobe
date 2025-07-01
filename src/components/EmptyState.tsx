@@ -4,8 +4,9 @@ import { Title, Paragraph } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
+import { EmptyStateProps } from '../types';
 
-const EmptyState = ({ icon, title, subtitle, children }) => {
+const EmptyState = ({ icon, title, subtitle, children }: EmptyStateProps) => {
   return (
     <View style={styles.container}>
       <Ionicons name={icon} size={80} color={theme.colors.textSecondary} />

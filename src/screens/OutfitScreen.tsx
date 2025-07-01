@@ -28,16 +28,33 @@ import { useFocusEffect } from '@react-navigation/native';
 import { theme } from '../styles/theme';
 import { useDatabase } from '../services/DatabaseContext';
 import EmptyState from '../components/EmptyState';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList, Outfit, User } from '../types';
 
 const { width } = Dimensions.get('window');
 
-const OutfitScreen = ({ navigation }) => {
-  const { getOutfits, getUsers, isLoading: dbLoading } = useDatabase();
+type OutfitScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'Outfit'
+>;
+
+interface OutfitScreenProps {
+  navigation: OutfitScreenNavigationProp;
+}
+
+interface OutfitCardProps {
+  item: Outfit;
+  onPress: (item: Outfit) => void;
+  style?: any;
+}
+
+const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
+  const { outfits: dbOutfits } = useDatabase();
   
-  const [outfits, setOutfits] = useState([]);
-  const [filteredOutfits, setFilteredOutfits] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [outfits, setOutfits] = useState<Outfit[]>([]);
+  const [filteredOutfits, setFilteredOutfits] = useState<Outfit[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all'); // all, favorite, recent
   const [refreshing, setRefreshing] = useState(false);
@@ -45,23 +62,19 @@ const OutfitScreen = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, [dbOutfits])
   );
 
   const loadData = async () => {
     try {
-      if (dbLoading) {
-        return; // 如果数据库还在加载中，直接返回
-      }
+      // 使用数据库中的outfits和模拟用户数据
+      const usersData: User[] = [
+        { id: 1, name: '我', photo_uri: '', created_at: new Date().toISOString() }
+      ];
       
-      const [outfitsData, usersData] = await Promise.all([
-        getOutfits(),
-        getUsers()
-      ]);
-      
-      setOutfits(outfitsData);
+      setOutfits(dbOutfits);
       setUsers(usersData);
-      filterOutfits(outfitsData, searchQuery, selectedUser, filterType);
+      filterOutfits(dbOutfits, searchQuery, selectedUser, filterType);
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('错误', '加载数据失败，请重试');
@@ -74,7 +87,7 @@ const OutfitScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const filterOutfits = (outfitsData, query, user, type) => {
+  const filterOutfits = (outfitsData: Outfit[], query: string, user: User | null, type: string) => {
     let filtered = outfitsData;
 
     // 按用户筛选
@@ -88,7 +101,7 @@ const OutfitScreen = ({ navigation }) => {
     } else if (type === 'recent') {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      filtered = filtered.filter(item => new Date(item.created_at) >= oneWeekAgo);
+      filtered = filtered.filter(item => new Date(item.created_at || item.createdAt) >= oneWeekAgo);
     }
 
     // 按搜索词筛选
@@ -97,43 +110,43 @@ const OutfitScreen = ({ navigation }) => {
       filtered = filtered.filter(item =>
         item.name?.toLowerCase().includes(lowercaseQuery) ||
         item.occasion?.toLowerCase().includes(lowercaseQuery) ||
-        item.notes?.toLowerCase().includes(lowercaseQuery) ||
-        item.user_name?.toLowerCase().includes(lowercaseQuery)
+        item.notes?.toLowerCase().includes(lowercaseQuery)
       );
     }
 
     setFilteredOutfits(filtered);
   };
 
-  const handleSearch = (query) => {
+  const handleSearch = (query: string) => {
     setSearchQuery(query);
     filterOutfits(outfits, query, selectedUser, filterType);
   };
 
-  const handleUserFilter = (user) => {
+  const handleUserFilter = (user: User) => {
     const newUser = selectedUser?.id === user.id ? null : user;
     setSelectedUser(newUser);
     filterOutfits(outfits, searchQuery, newUser, filterType);
   };
 
-  const handleTypeFilter = (type) => {
+  const handleTypeFilter = (type: string) => {
     setFilterType(type);
     filterOutfits(outfits, searchQuery, selectedUser, type);
   };
 
-  const handleOutfitPress = (outfit) => {
-    navigation.navigate('OutfitDetail', { outfit });
+  const handleOutfitPress = (outfit: Outfit) => {
+    // TODO: 实现详情页导航
+    Alert.alert('提示', `查看搭配: ${outfit.name}`);
   };
 
-  const renderOutfitItem = ({ item }) => (
+  const renderOutfitItem = ({ item }: { item: Outfit }) => (
     <OutfitCard
       item={item}
       onPress={() => handleOutfitPress(item)}
-      style={styles.outfitCard}
+      style={styles.cardContainer}
     />
   );
 
-  const OutfitCard = ({ item, onPress, style }) => (
+  const OutfitCard = ({ item, onPress, style }: OutfitCardProps) => (
     <TouchableOpacity onPress={() => onPress(item)} style={[styles.cardContainer, style]}>
       <Card style={styles.card}>
         <View style={styles.cardHeader}>
@@ -142,14 +155,15 @@ const OutfitScreen = ({ navigation }) => {
               {item.name || '未命名搭配'}
             </Title>
             <Text style={styles.outfitDate}>
-              {new Date(item.created_at).toLocaleDateString('zh-CN')}
+              {item.created_at ? new Date(item.created_at).toLocaleDateString('zh-CN') : 
+               new Date(item.createdAt).toLocaleDateString('zh-CN')}
             </Text>
           </View>
           <View style={styles.cardHeaderRight}>
             {item.is_favorite && (
               <Ionicons name="heart" size={20} color={theme.colors.error} />
             )}
-            <Text style={styles.userName}>{item.user_name}</Text>
+            <Text style={styles.userName}>我</Text>
           </View>
         </View>
 
@@ -276,7 +290,7 @@ const OutfitScreen = ({ navigation }) => {
       <FAB
         style={styles.fab}
         icon="plus"
-        onPress={() => navigation.navigate('CreateOutfit')}
+        onPress={() => Alert.alert('提示', '创建穿搭功能即将推出')}
       />
     </View>
   );

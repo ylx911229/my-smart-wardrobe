@@ -2,7 +2,7 @@
   "name": "smart-wardrobe",
   "version": "1.0.0",
   "description": "智能衣柜管理应用",
-  "main": "index.js",
+  "main": "index.tsx",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -36,7 +36,9 @@
     "react-native-vector-icons": "^10.0.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "@types/react": "^19.0.0",
+    "typescript": "~5.3.0"
   },
   "private": true
 }

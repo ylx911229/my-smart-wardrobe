@@ -10,15 +10,46 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { useDatabase } from '../services/DatabaseContext';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { ProfileStackParamList, ClothingItem, Outfit } from '../types';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const StatisticsScreen = ({ navigation }) => {
-  const { getClothes, getCategories, getOutfits, isLoading: dbLoading } = useDatabase();
+type StatisticsScreenNavigationProp = StackNavigationProp<
+  ProfileStackParamList,
+  'Statistics'
+>;
+
+interface StatisticsScreenProps {
+  navigation: StatisticsScreenNavigationProp;
+}
+
+interface CategoryStat {
+  id: number;
+  name: string;
+  color: string;
+  count: number;
+  percentage: string;
+}
+
+interface StatCardProps {
+  title: string;
+  value: number;
+  icon: any;
+  color?: string;
+  subtitle?: string;
+}
+
+interface CategoryBarProps {
+  category: CategoryStat;
+}
+
+const StatisticsScreen = ({ navigation }: StatisticsScreenProps) => {
+  const { clothing, outfits } = useDatabase();
   const [statistics, setStatistics] = useState({
     totalClothes: 0,
     totalOutfits: 0,
-    categoryStats: [],
+    categoryStats: [] as CategoryStat[],
     activityStats: {
       active: 0,
       inactive: 0,
@@ -27,46 +58,43 @@ const StatisticsScreen = ({ navigation }) => {
   });
 
   useEffect(() => {
-    if (!dbLoading) {
-      loadStatistics();
-    }
-  }, [dbLoading]);
+    loadStatistics();
+  }, [clothing, outfits]);
 
-  const loadStatistics = async () => {
+  const loadStatistics = () => {
     try {
-      if (dbLoading) {
-        return; // 如果数据库还在加载中，直接返回
-      }
-      
-      const [clothes, categories, outfits] = await Promise.all([
-        getClothes(),
-        getCategories(),
-        getOutfits(),
-      ]);
+      // 模拟分类数据
+      const categories = [
+        { id: 1, name: '上衣', color: '#FF6B6B' },
+        { id: 2, name: '下装', color: '#4ECDC4' },
+        { id: 3, name: '外套', color: '#45B7D1' },
+        { id: 4, name: '鞋子', color: '#96CEB4' },
+        { id: 5, name: '配饰', color: '#FECA57' },
+      ];
 
       // 计算分类统计
-      const categoryStats = categories.map(category => {
-        const count = clothes.filter(item => item.category_id === category.id).length;
+      const categoryStats = categories.map((category) => {
+        const count = clothing.filter((item: ClothingItem) => item.category === category.name).length;
         return {
           ...category,
           count,
-          percentage: clothes.length > 0 ? (count / clothes.length * 100).toFixed(1) : 0,
+          percentage: clothing.length > 0 ? (count / clothing.length * 100).toFixed(1) : '0',
         };
       });
 
       // 计算活跃度统计
-      const activeClothes = clothes.filter(item => item.activity_score > 0).length;
-      const inactiveClothes = clothes.length - activeClothes;
+      const activeClothes = clothing.filter((item: ClothingItem) => (item.activity_score || 0) > 0).length;
+      const inactiveClothes = clothing.length - activeClothes;
 
       // 计算本月新增
       const thisMonth = new Date();
       thisMonth.setDate(1);
-      const recentAdditions = clothes.filter(item => 
-        new Date(item.created_at) >= thisMonth
+      const recentAdditions = clothing.filter((item: ClothingItem) => 
+        new Date(item.createdAt).getTime() >= thisMonth.getTime()
       ).length;
 
       setStatistics({
-        totalClothes: clothes.length,
+        totalClothes: clothing.length,
         totalOutfits: outfits.length,
         categoryStats: categoryStats.sort((a, b) => b.count - a.count),
         activityStats: {
@@ -80,7 +108,7 @@ const StatisticsScreen = ({ navigation }) => {
     }
   };
 
-  const StatCard = ({ title, value, icon, color = theme.colors.primary, subtitle }) => (
+  const StatCard = ({ title, value, icon, color = theme.colors.primary, subtitle }: StatCardProps) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
       <View style={styles.statContent}>
         <View style={styles.statLeft}>
@@ -95,7 +123,7 @@ const StatisticsScreen = ({ navigation }) => {
     </View>
   );
 
-  const CategoryBar = ({ category }) => (
+  const CategoryBar = ({ category }: CategoryBarProps) => (
     <View style={styles.categoryItem}>
       <View style={styles.categoryInfo}>
         <View style={[styles.categoryDot, { backgroundColor: category.color }]} />
@@ -107,7 +135,7 @@ const StatisticsScreen = ({ navigation }) => {
           style={[
             styles.categoryBar, 
             { 
-              width: `${category.percentage}%`,
+              width: `${category.percentage}%` as any,
               backgroundColor: category.color 
             }
           ]} 

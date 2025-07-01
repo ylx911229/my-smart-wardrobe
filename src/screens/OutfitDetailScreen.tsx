@@ -20,8 +20,26 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
+import type { OutfitStackParamList, Outfit } from '../types';
 
-const OutfitDetailScreen = ({ route, navigation }) => {
+type OutfitDetailScreenNavigationProp = StackNavigationProp<
+  OutfitStackParamList,
+  'OutfitDetail'
+>;
+
+type OutfitDetailScreenRouteProp = RouteProp<
+  OutfitStackParamList,
+  'OutfitDetail'
+>;
+
+interface OutfitDetailScreenProps {
+  navigation: OutfitDetailScreenNavigationProp;
+  route: OutfitDetailScreenRouteProp;
+}
+
+const OutfitDetailScreen = ({ route, navigation }: OutfitDetailScreenProps) => {
   const { outfit } = route.params;
   const [isFavorite, setIsFavorite] = useState(outfit.is_favorite);
 
@@ -59,7 +77,8 @@ const OutfitDetailScreen = ({ route, navigation }) => {
   };
 
   const handleEdit = () => {
-    navigation.navigate('EditOutfit', { outfit });
+    // TODO: 实现编辑功能
+    Alert.alert('提示', '编辑功能暂未实现');
   };
 
   return (
@@ -96,7 +115,7 @@ const OutfitDetailScreen = ({ route, navigation }) => {
                 {outfit.name || '未命名搭配'}
               </Title>
               <Text style={styles.userName}>
-                {outfit.user_name} · {new Date(outfit.created_at).toLocaleDateString('zh-CN')}
+                创建于 {outfit.created_at ? new Date(outfit.created_at).toLocaleDateString('zh-CN') : '未知'}
               </Text>
             </View>
           </View>

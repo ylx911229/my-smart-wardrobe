@@ -5,7 +5,8 @@ import {
   ScrollView,
   Alert,
   Image,
-  Dimensions
+  Dimensions,
+  TouchableOpacity
 } from 'react-native';
 import {
   Card,
@@ -22,42 +23,59 @@ import * as Location from 'expo-location';
 
 import { theme } from '../styles/theme';
 import { useDatabase } from '../services/DatabaseContext';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList, ClothingItem, User } from '../types';
 
 const { width } = Dimensions.get('window');
 
-const RecommendScreen = ({ navigation }) => {
-  const { getUsers, getClothes, addOutfit, updateClothingActivity, isLoading: dbLoading } = useDatabase();
+type RecommendScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'Recommend'
+>;
+
+interface RecommendScreenProps {
+  navigation: RecommendScreenNavigationProp;
+}
+
+interface WeatherInfo {
+  temperature: number;
+  condition: string;
+  description: string;
+}
+
+interface Recommendation {
+  outfit: ClothingItem[];
+  reason: string;
+  weather: WeatherInfo | null;
+}
+
+const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
+  const { clothing, addOutfit } = useDatabase();
   
-  const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [clothes, setClothes] = useState([]);
-  const [weather, setWeather] = useState(null);
-  const [recommendation, setRecommendation] = useState(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [clothes, setClothes] = useState<ClothingItem[]>([]);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!dbLoading) {
-      loadData();
-    }
+    loadData();
     getWeatherInfo();
-  }, [dbLoading]);
+  }, [clothing]);
 
   const loadData = async () => {
     try {
-      if (dbLoading) {
-        return; // 如果数据库还在加载中，直接返回
-      }
+      // 使用模拟用户数据
+      const defaultUsers: User[] = [
+        { id: 1, name: '我', photo_uri: '', created_at: new Date().toISOString() }
+      ];
       
-      const [usersData, clothesData] = await Promise.all([
-        getUsers(),
-        getClothes()
-      ]);
+      setUsers(defaultUsers);
+      setClothes(clothing);
       
-      setUsers(usersData);
-      setClothes(clothesData);
-      
-      if (usersData.length > 0) {
-        setSelectedUser(usersData[0]);
+      if (defaultUsers.length > 0) {
+        setSelectedUser(defaultUsers[0]);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -129,7 +147,7 @@ const RecommendScreen = ({ navigation }) => {
 
   const filterClothesBySeason = () => {
     const currentMonth = new Date().getMonth() + 1;
-    let season;
+    let season: string;
     
     if (currentMonth >= 3 && currentMonth <= 5) season = 'spring';
     else if (currentMonth >= 6 && currentMonth <= 8) season = 'summer';
@@ -147,7 +165,7 @@ const RecommendScreen = ({ navigation }) => {
     });
   };
 
-  const filterClothesByWeather = (clothesList) => {
+  const filterClothesByWeather = (clothesList: ClothingItem[]) => {
     if (!weather) return clothesList;
 
     const temp = weather.temperature;
@@ -167,10 +185,10 @@ const RecommendScreen = ({ navigation }) => {
     });
   };
 
-  const groupClothesByCategory = (clothesList) => {
-    const grouped = {};
+  const groupClothesByCategory = (clothesList: ClothingItem[]) => {
+    const grouped: { [key: string]: ClothingItem[] } = {};
     clothesList.forEach(item => {
-      const category = item.category_name || '其他';
+      const category = item.category_name || item.category || '其他';
       if (!grouped[category]) {
         grouped[category] = [];
       }
@@ -179,8 +197,8 @@ const RecommendScreen = ({ navigation }) => {
     return grouped;
   };
 
-  const generateOutfit = (categorizedClothes) => {
-    const outfit = [];
+  const generateOutfit = (categorizedClothes: { [key: string]: ClothingItem[] }) => {
+    const outfit: ClothingItem[] = [];
     
     // 基本搭配逻辑：上衣 + 下装 + 鞋子
     const priorities = ['上衣', '裤子', '裙子', '鞋子', '外套', '配饰'];
@@ -191,7 +209,7 @@ const RecommendScreen = ({ navigation }) => {
         const items = categorizedClothes[category];
         const weightedItems = items.map(item => ({
           ...item,
-          weight: item.activity_score + Math.random() * 50
+          weight: (item.activity_score || 0) + Math.random() * 50
         }));
         
         weightedItems.sort((a, b) => b.weight - a.weight);
@@ -234,25 +252,22 @@ const RecommendScreen = ({ navigation }) => {
   };
 
   const handleSaveOutfit = async () => {
-    if (!recommendation) return;
+    if (!recommendation || !selectedUser) return;
 
     try {
       const outfitData = {
         name: `${new Date().toLocaleDateString()}的推荐搭配`,
         user_id: selectedUser.id,
+        clothingIds: recommendation.outfit.map(item => item.id),
+        date: new Date().toISOString(),
         photo_uri: '', // 可以生成拼图或让用户拍照
         occasion: '日常',
         weather: weather ? `${weather.temperature}°C ${weather.condition}` : '',
-        notes: recommendation.reason
+        notes: recommendation.reason,
+        isVisible: true
       };
 
-      const clothingIds = recommendation.outfit.map(item => item.id);
-      await addOutfit(outfitData, clothingIds);
-
-      // 更新衣物活跃度
-      for (const item of recommendation.outfit) {
-        await updateClothingActivity(item.id, 5);
-      }
+      await addOutfit(outfitData);
 
       Alert.alert('成功', '搭配已保存到我的穿搭中');
     } catch (error) {
@@ -261,12 +276,12 @@ const RecommendScreen = ({ navigation }) => {
     }
   };
 
-  const renderClothingItem = (item) => (
+  const renderClothingItem = (item: ClothingItem) => (
     <View key={item.id} style={styles.clothingItem}>
-      <Image source={{ uri: item.photo_uri }} style={styles.clothingImage} />
+      <Image source={{ uri: item.photo_uri || '' }} style={styles.clothingImage} />
       <View style={styles.clothingInfo}>
         <Text style={styles.clothingName}>{item.name}</Text>
-        <Text style={styles.clothingCategory}>{item.category_name}</Text>
+        <Text style={styles.clothingCategory}>{item.category_name || item.category}</Text>
         {item.color && <Text style={styles.clothingDetail}>颜色: {item.color}</Text>}
         {item.brand && <Text style={styles.clothingDetail}>品牌: {item.brand}</Text>}
       </View>
@@ -317,7 +332,7 @@ const RecommendScreen = ({ navigation }) => {
                 >
                   <Avatar.Image
                     size={60}
-                    source={user.photo_uri ? { uri: user.photo_uri } : undefined}
+                    source={user.photo_uri ? { uri: user.photo_uri } : { uri: 'https://via.placeholder.com/60' }}
                     style={styles.userAvatar}
                   />
                   <Text style={styles.userName}>{user.name}</Text>

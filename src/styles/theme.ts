@@ -31,6 +31,7 @@ export const theme = {
     // 边框和分割线
     border: '#E0E0E0',
     divider: '#F0F0F0',
+    placeholder: '#999999',
     
     // 特殊颜色
     accent: '#CD853F',

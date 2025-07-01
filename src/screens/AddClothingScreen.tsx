@@ -21,16 +21,37 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { theme } from '../styles/theme';
 import { useDatabase } from '../services/DatabaseContext';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { WardrobeStackParamList, Category } from '../types';
 
-const AddClothingScreen = ({ navigation }) => {
-  const { addClothing, getCategories } = useDatabase();
+type AddClothingScreenNavigationProp = StackNavigationProp<
+  WardrobeStackParamList,
+  'AddClothing'
+>;
+
+interface AddClothingScreenProps {
+  navigation: AddClothingScreenNavigationProp;
+}
+
+interface FormData {
+  name: string;
+  photo_uri: string;
+  brand: string;
+  color: string;
+  size: string;
+  location: string;
+  notes: string;
+}
+
+const AddClothingScreen = ({ navigation }: AddClothingScreenProps) => {
+  const { addClothing } = useDatabase();
   
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [categoryMenuVisible, setCategoryMenuVisible] = useState(false);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     photo_uri: '',
     brand: '',
@@ -61,18 +82,26 @@ const AddClothingScreen = ({ navigation }) => {
 
   const loadCategories = async () => {
     try {
-      const categoriesData = await getCategories();
+      // 使用预定义的分类列表
+      const categoriesData: Category[] = [
+        { id: '1', name: '上衣', color: '#FF6B6B' },
+        { id: '2', name: '下装', color: '#4ECDC4' },
+        { id: '3', name: '外套', color: '#45B7D1' },
+        { id: '4', name: '鞋子', color: '#96CEB4' },
+        { id: '5', name: '配饰', color: '#FFEAA7' },
+        { id: '6', name: '其他', color: '#DDA0DD' }
+      ];
       setCategories(categoriesData);
     } catch (error) {
       console.error('Error loading categories:', error);
     }
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleCategorySelect = (category) => {
+  const handleCategorySelect = (category: Category) => {
     setSelectedCategory(category);
     setCategoryMenuVisible(false);
   };
@@ -89,7 +118,7 @@ const AddClothingScreen = ({ navigation }) => {
     );
   };
 
-  const pickImage = async (source) => {
+  const pickImage = async (source: 'camera' | 'library') => {
     try {
       let result;
       
@@ -158,14 +187,27 @@ const AddClothingScreen = ({ navigation }) => {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm() || !selectedCategory) return;
     
     setLoading(true);
     
     try {
       const clothingData = {
-        ...formData,
-        category_id: selectedCategory.id,
+        name: formData.name,
+        category: selectedCategory.name,
+        category_id: parseInt(selectedCategory.id),
+        category_name: selectedCategory.name,
+        category_color: selectedCategory.color,
+        color: formData.color,
+        brand: formData.brand,
+        size: formData.size,
+        location: formData.location,
+        notes: formData.notes,
+        photo_uri: formData.photo_uri,
+        tags: [],
+        season: '全季',
+        isVisible: true,
+        wearCount: 0
       };
       
       await addClothing(clothingData);

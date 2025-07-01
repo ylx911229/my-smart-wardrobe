@@ -4,9 +4,10 @@ import { Card, Text, Chip } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
+import { ClothingCardProps } from '../types';
 
-const ClothingCard = ({ item, onPress, style }) => {
-  const getActivityColor = (score) => {
+const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
+  const getActivityColor = (score: number) => {
     if (score > 20) return theme.colors.success;
     if (score > 10) return theme.colors.warning;
     return theme.colors.textSecondary;
@@ -22,9 +23,9 @@ const ClothingCard = ({ item, onPress, style }) => {
               <Ionicons 
                 name="flash" 
                 size={12} 
-                color={getActivityColor(item.activity_score)} 
+                color={getActivityColor(item.activity_score || 0)} 
               />
-              <Text style={[styles.activityText, { color: getActivityColor(item.activity_score) }]}>
+              <Text style={[styles.activityText, { color: getActivityColor(item.activity_score || 0) }]}>
                 {item.activity_score || 0}
               </Text>
             </View>

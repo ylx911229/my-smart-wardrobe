@@ -1,24 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Alert, TouchableOpacity, Text } from 'react-native';
-import { Camera } from 'expo-camera';
+import { CameraView, CameraType, FlashMode, useCameraPermissions } from 'expo-camera';
 import { Button, IconButton } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
+import type { WardrobeStackParamList } from '../types';
 
-const CameraScreen = ({ navigation, route }) => {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(Camera.Constants.Type.back);
-  const [flashMode, setFlashMode] = useState(Camera.Constants.FlashMode.off);
-  const cameraRef = useRef(null);
-  const { onPhotoTaken } = route.params || {};
+type CameraScreenNavigationProp = StackNavigationProp<
+  WardrobeStackParamList,
+  'Camera'
+>;
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
+type CameraScreenRouteProp = RouteProp<
+  WardrobeStackParamList,
+  'Camera'
+>;
+
+interface CameraScreenProps {
+  navigation: CameraScreenNavigationProp;
+  route: CameraScreenRouteProp;
+}
+
+const CameraScreen = ({ navigation, route }: CameraScreenProps) => {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<CameraType>('back');
+  const [flash, setFlash] = useState<FlashMode>('off');
+  const cameraRef = useRef<CameraView>(null);
+  // TODO: 添加回调参数类型定义
+  const onPhotoTaken = (route.params as any)?.onPhotoTaken;
 
   const takePicture = async () => {
     if (cameraRef.current) {
@@ -41,30 +53,25 @@ const CameraScreen = ({ navigation, route }) => {
   };
 
   const toggleCameraType = () => {
-    setType(
-      type === Camera.Constants.Type.back
-        ? Camera.Constants.Type.front
-        : Camera.Constants.Type.back
-    );
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
   const toggleFlash = () => {
-    setFlashMode(
-      flashMode === Camera.Constants.FlashMode.off
-        ? Camera.Constants.FlashMode.on
-        : Camera.Constants.FlashMode.off
-    );
+    setFlash(current => (current === 'off' ? 'on' : 'off'));
   };
 
-  if (hasPermission === null) {
+  if (!permission) {
     return <View style={styles.container} />;
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>需要相机权限才能拍照</Text>
-        <Button mode="contained" onPress={() => navigation.goBack()}>
+        <Button mode="contained" onPress={requestPermission}>
+          请求权限
+        </Button>
+        <Button mode="outlined" onPress={() => navigation.goBack()}>
           返回
         </Button>
       </View>
@@ -73,10 +80,10 @@ const CameraScreen = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <Camera 
+      <CameraView 
         style={styles.camera} 
-        type={type} 
-        flashMode={flashMode}
+        facing={facing} 
+        flash={flash}
         ref={cameraRef}
       >
         <View style={styles.cameraContent}>
@@ -89,7 +96,7 @@ const CameraScreen = ({ navigation, route }) => {
               onPress={() => navigation.goBack()}
             />
             <IconButton
-              icon={flashMode === Camera.Constants.FlashMode.off ? "flash-off" : "flash"}
+              icon={flash === 'off' ? "flash-off" : "flash"}
               iconColor={theme.colors.textLight}
               size={28}
               onPress={toggleFlash}
@@ -118,7 +125,7 @@ const CameraScreen = ({ navigation, route }) => {
             </View>
           </View>
         </View>
-      </Camera>
+      </CameraView>
     </View>
   );
 };

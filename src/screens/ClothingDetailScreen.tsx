@@ -5,7 +5,8 @@ import {
   ScrollView,
   Image,
   Alert,
-  Share
+  Share,
+  Linking
 } from 'react-native';
 import {
   Card,
@@ -20,8 +21,26 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
+import type { WardrobeStackParamList, ClothingItem } from '../types';
 
-const ClothingDetailScreen = ({ route, navigation }) => {
+type ClothingDetailScreenNavigationProp = StackNavigationProp<
+  WardrobeStackParamList,
+  'ClothingDetail'
+>;
+
+type ClothingDetailScreenRouteProp = RouteProp<
+  WardrobeStackParamList,
+  'ClothingDetail'
+>;
+
+interface ClothingDetailScreenProps {
+  navigation: ClothingDetailScreenNavigationProp;
+  route: ClothingDetailScreenRouteProp;
+}
+
+const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) => {
   const { clothing } = route.params;
   const [isFavorite, setIsFavorite] = useState(false);
 
@@ -37,7 +56,8 @@ const ClothingDetailScreen = ({ route, navigation }) => {
   };
 
   const handleEdit = () => {
-    navigation.navigate('EditClothing', { clothing });
+    // TODO: 实现编辑功能
+    Alert.alert('提示', '编辑功能暂未实现');
   };
 
   const handleDelete = () => {
@@ -56,13 +76,13 @@ const ClothingDetailScreen = ({ route, navigation }) => {
     Alert.alert('提示', '删除功能暂未实现');
   };
 
-  const getActivityColor = (score) => {
+  const getActivityColor = (score: number) => {
     if (score > 20) return theme.colors.success;
     if (score > 10) return theme.colors.warning;
     return theme.colors.textSecondary;
   };
 
-  const renderDetailRow = (label, value, icon) => {
+  const renderDetailRow = (label: string, value: string | null, icon?: any) => {
     if (!value) return null;
     
     return (
@@ -118,9 +138,9 @@ const ClothingDetailScreen = ({ route, navigation }) => {
               <Ionicons 
                 name="flash" 
                 size={20} 
-                color={getActivityColor(clothing.activity_score)} 
+                color={getActivityColor(clothing.activity_score || 0)} 
               />
-              <Text style={[styles.activityScore, { color: getActivityColor(clothing.activity_score) }]}>
+              <Text style={[styles.activityScore, { color: getActivityColor(clothing.activity_score || 0) }]}>
                 {clothing.activity_score || 0}
               </Text>
               <Text style={styles.activityLabel}>活跃度</Text>
@@ -134,14 +154,14 @@ const ClothingDetailScreen = ({ route, navigation }) => {
         <Card.Content>
           <Title style={styles.sectionTitle}>详细信息</Title>
           
-          {renderDetailRow('品牌', clothing.brand, 'business-outline')}
-          {renderDetailRow('颜色', clothing.color, 'color-palette-outline')}
-          {renderDetailRow('尺码', clothing.size, 'resize-outline')}
-          {renderDetailRow('购买日期', clothing.purchase_date ? new Date(clothing.purchase_date).toLocaleDateString('zh-CN') : null, 'calendar-outline')}
-          {renderDetailRow('购买价格', clothing.purchase_price ? `¥${clothing.purchase_price}` : null, 'cash-outline')}
-          {renderDetailRow('存放位置', clothing.location, 'location-outline')}
-          {renderDetailRow('最后穿着', clothing.last_worn_date ? new Date(clothing.last_worn_date).toLocaleDateString('zh-CN') : '从未穿着', 'time-outline')}
-          {renderDetailRow('穿着次数', `${clothing.wear_count || 0} 次`, 'repeat-outline')}
+          {renderDetailRow('品牌', clothing.brand || null, 'business-outline')}
+          {renderDetailRow('颜色', clothing.color || null, 'color-palette-outline')}
+          {renderDetailRow('尺码', clothing.size || null, 'resize-outline')}
+          {renderDetailRow('购买日期', clothing.purchaseDate ? new Date(clothing.purchaseDate).toLocaleDateString('zh-CN') : null, 'calendar-outline')}
+          {renderDetailRow('购买价格', clothing.price ? `¥${clothing.price}` : null, 'cash-outline')}
+          {renderDetailRow('存放位置', clothing.location || null, 'location-outline')}
+          {renderDetailRow('最后穿着', clothing.lastWorn ? new Date(clothing.lastWorn).toLocaleDateString('zh-CN') : '从未穿着', 'time-outline')}
+          {renderDetailRow('穿着次数', `${clothing.wearCount || 0} 次`, 'repeat-outline')}
           
           {clothing.notes && (
             <>
@@ -153,6 +173,7 @@ const ClothingDetailScreen = ({ route, navigation }) => {
             </>
           )}
 
+          {/* TODO: 添加购买链接功能
           {clothing.purchase_link && (
             <>
               <Divider style={styles.divider} />
@@ -167,6 +188,7 @@ const ClothingDetailScreen = ({ route, navigation }) => {
               </View>
             </>
           )}
+          */}
         </Card.Content>
       </Card>
 

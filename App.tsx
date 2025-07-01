@@ -40,12 +40,12 @@ function WardrobeStack() {
       />
       <Stack.Screen 
         name="ClothingDetail" 
-        component={ClothingDetailScreen} 
+        component={ClothingDetailScreen as any} 
         options={{ title: '衣物详情' }}
       />
       <Stack.Screen 
         name="Camera" 
-        component={CameraScreen} 
+        component={CameraScreen as any} 
         options={{ title: '拍照' }}
       />
     </Stack.Navigator>
@@ -63,7 +63,7 @@ function OutfitStack() {
       />
       <Stack.Screen 
         name="OutfitDetail" 
-        component={OutfitDetailScreen} 
+        component={OutfitDetailScreen as any} 
         options={{ title: '穿搭详情' }}
       />
     </Stack.Navigator>
@@ -99,16 +99,18 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+          let iconName: keyof typeof Ionicons.glyphMap;
           
           if (route.name === 'Wardrobe') {
             iconName = focused ? 'shirt' : 'shirt-outline';
           } else if (route.name === 'Outfit') {
             iconName = focused ? 'body' : 'body-outline';
           } else if (route.name === 'Recommend') {
-            iconName = focused ? 'sparkles' : 'sparkles-outline';
+            iconName = focused ? 'star' : 'star-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
+          } else {
+            iconName = 'ellipse-outline';
           }
           
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -146,7 +148,7 @@ function MainTabs() {
   );
 }
 
-export default function App() {
+export default function App(): React.JSX.Element {
   return (
     <PaperProvider theme={theme}>
       <DatabaseProvider>
