@@ -4,15 +4,17 @@ import { Card, Title, Text, Chip, Paragraph } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
-import type { Outfit } from '../types';
+import type { Outfit, User } from '../types';
 
 interface OutfitCardProps {
   item: Outfit;
   onPress: (item: Outfit) => void;
+  onToggleFavorite?: (item: Outfit) => void;
   style?: any;
+  users?: User[];
 }
 
-const OutfitCard = ({ item, onPress, style }: OutfitCardProps) => {
+const OutfitCard = ({ item, onPress, onToggleFavorite, style, users = [] }: OutfitCardProps) => {
   const renderDate = () => {
     try {
       if (item?.created_at && typeof item.created_at === 'string') {
@@ -24,6 +26,14 @@ const OutfitCard = ({ item, onPress, style }: OutfitCardProps) => {
     } catch {
       return '未知日期';
     }
+  };
+
+  const getUserName = () => {
+    if (item.user_id && users.length > 0) {
+      const user = users.find(u => u.id === item.user_id);
+      return user ? user.name : '未知用户';
+    }
+    return '我'; // 默认显示为"我"（向后兼容）
   };
 
   return (
@@ -39,14 +49,21 @@ const OutfitCard = ({ item, onPress, style }: OutfitCardProps) => {
             </Text>
           </View>
           <View style={styles.cardHeaderRight}>
-            {Boolean(item?.is_favorite) && (
-              <Ionicons name="heart" size={20} color={theme.colors.error} />
+            {onToggleFavorite && (
+              <TouchableOpacity onPress={() => onToggleFavorite(item)}>
+                <Ionicons 
+                  name={item?.is_favorite ? "heart" : "heart-outline"} 
+                  size={20} 
+                  color={item?.is_favorite ? theme.colors.error : theme.colors.textSecondary} 
+                />
+              </TouchableOpacity>
             )}
-            <Text style={styles.userName}>我</Text>
+            <Text style={styles.userName}>{getUserName()}</Text>
           </View>
         </View>
 
-        {item?.photo_uri && typeof item.photo_uri === 'string' && item.photo_uri.trim() !== '' && (
+        {((item?.imageUri && typeof item.imageUri === 'string' && item.imageUri.trim() !== '') ||
+          (item?.photo_uri && typeof item.photo_uri === 'string' && item.photo_uri.trim() !== '')) && (
           <Image source={{ uri: (item.imageUri || item.photo_uri || '').trim() }} style={styles.outfitImage} />
         )}
 
@@ -77,11 +94,13 @@ const OutfitCard = ({ item, onPress, style }: OutfitCardProps) => {
 
 const styles = StyleSheet.create({
   cardContainer: {
-    flex: 1,
+    // 移除flex: 1，让FlatGrid控制宽度
   },
   
   card: {
     backgroundColor: theme.colors.surface,
+    borderRadius: theme.roundness,
+    minHeight: 200, // 固定最小高度确保布局一致
     ...theme.shadows.small,
   },
   
@@ -122,6 +141,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 120,
     resizeMode: 'cover',
+    borderTopLeftRadius: theme.roundness,
+    borderTopRightRadius: theme.roundness,
   },
   
   cardContent: {
@@ -137,6 +158,7 @@ const styles = StyleSheet.create({
   detailChip: {
     marginRight: theme.spacing.xs,
     marginBottom: theme.spacing.xs,
+    borderRadius: theme.roundness,
   },
   
   chipText: {

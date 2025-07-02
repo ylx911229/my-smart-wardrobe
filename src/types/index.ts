@@ -30,7 +30,7 @@ export interface ClothingItem {
 export interface Outfit {
   id: string;
   name: string;
-  user_id?: number;
+  user_id?: string;
   clothingIds: string[];
   date: string;
   occasion?: string;

@@ -7,7 +7,8 @@ import {
   Alert,
   Image,
   Dimensions,
-  TouchableOpacity
+  TouchableOpacity,
+  FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -22,7 +23,7 @@ import {
   Text,
   IconButton
 } from 'react-native-paper';
-import { FlatGrid } from 'react-native-super-grid';
+// 移除FlatGrid，使用FlatList替代
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -46,27 +47,26 @@ interface OutfitScreenProps {
 }
 
 const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
-  const { outfits: allOutfits, users } = useDatabase();
+  const { outfits: allOutfits, users, updateOutfit } = useDatabase();
   
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [filteredOutfits, setFilteredOutfits] = useState<Outfit[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOccasion, setSelectedOccasion] = useState<string>('全部');
-  const [selectedSeason, setSelectedSeason] = useState<string>('全部');
+  const [selectedFilter, setSelectedFilter] = useState<string>('全部'); // 改为统一的筛选状态
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // 设置默认用户
-    if (users.length > 0 && !selectedUser) {
-      const defaultUser = users.find(user => user.isDefault) || users[0];
-      setSelectedUser(defaultUser);
-    }
+    // 不自动选择默认用户，让用户手动选择
+    // if (users.length > 0 && !selectedUser) {
+    //   const defaultUser = users.find(user => user.isDefault) || users[0];
+    //   setSelectedUser(defaultUser);
+    // }
   }, [users, selectedUser]);
 
   useEffect(() => {
     filterOutfits();
-  }, [allOutfits, searchQuery, selectedOccasion, selectedSeason, selectedUser]);
+  }, [allOutfits, searchQuery, selectedFilter, selectedUser]);
 
   const loadData = async () => {
     try {
@@ -87,21 +87,21 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
   const filterOutfits = () => {
     let filtered = allOutfits;
 
-         // 按用户筛选
-     if (selectedUser) {
-       // 暂时跳过用户筛选，因为outfit表还没有user_id字段
-       // filtered = filtered.filter(item => item.user_id === selectedUser.id);
-     }
-
-    // 按类型筛选
-    if (selectedOccasion !== '全部') {
-      filtered = filtered.filter(item => item.occasion === selectedOccasion);
+    // 按用户筛选 - selectedUser为null时显示所有用户的穿搭
+    if (selectedUser) {
+      filtered = filtered.filter(item => item.user_id === selectedUser.id);
     }
 
-    if (selectedSeason !== '全部') {
+    // 按类型筛选
+    if (selectedFilter === '收藏') {
+      filtered = filtered.filter(item => item.is_favorite === true);
+    } else if (selectedFilter === '最近') {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      filtered = filtered.filter(item => new Date(item.created_at || item.createdAt) >= oneWeekAgo);
+      filtered = filtered.filter(item => {
+        const createdDate = new Date(item.created_at || item.createdAt);
+        return createdDate >= oneWeekAgo;
+      });
     }
 
     // 按搜索词筛选
@@ -114,23 +114,27 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
       );
     }
 
+    console.log(`筛选结果: ${allOutfits.length} -> ${filtered.length} (用户: ${selectedUser?.name || '全部'}, 筛选: ${selectedFilter})`);
     setFilteredOutfits(filtered);
   };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    filterOutfits();
   };
 
-  const handleUserFilter = (user: User) => {
-    const newUser = selectedUser?.id === user.id ? null : user;
-    setSelectedUser(newUser);
-    filterOutfits();
+  const handleUserFilter = (user: User | null) => {
+    if (user === null) {
+      // 选择"全部"
+      setSelectedUser(null);
+    } else {
+      // 切换选择特定用户
+      const newUser = selectedUser?.id === user.id ? null : user;
+      setSelectedUser(newUser);
+    }
   };
 
   const handleTypeFilter = (type: string) => {
-    setSelectedOccasion(type);
-    filterOutfits();
+    setSelectedFilter(type);
   };
 
   const handleOutfitPress = (outfit: Outfit) => {
@@ -138,12 +142,19 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
     Alert.alert('提示', `查看搭配: ${outfit.name}`);
   };
 
-  const renderOutfitItem = ({ item }: { item: Outfit }) => (
-    <OutfitCard
-      item={item}
-      onPress={() => handleOutfitPress(item)}
-    />
-  );
+  const handleToggleFavorite = async (outfit: Outfit) => {
+    try {
+      await updateOutfit(outfit.id, {
+        is_favorite: !outfit.is_favorite
+      });
+      console.log(`Toggled favorite for outfit ${outfit.name}: ${!outfit.is_favorite}`);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      Alert.alert('错误', '更新收藏状态失败');
+    }
+  };
+
+  // 移除renderOutfitItem函数，直接在FlatList中使用
 
   return (
     <SafeAreaView style={commonStyles.container}>
@@ -163,35 +174,32 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={commonStyles.filterRow}>
             <Chip
-              selected={selectedOccasion === '全部'}
               onPress={() => handleTypeFilter('全部')}
               style={[
                 commonStyles.filterChip, 
-                selectedOccasion === '全部' && commonStyles.filterChipSelected
+                selectedFilter === '全部' && commonStyles.filterChipSelected
               ]}
-              textStyle={selectedOccasion === '全部' ? commonStyles.filterChipTextSelected : {}}
+              textStyle={selectedFilter === '全部' ? commonStyles.filterChipTextSelected : {}}
             >
               全部
             </Chip>
             <Chip
-              selected={selectedOccasion === '收藏'}
               onPress={() => handleTypeFilter('收藏')}
               style={[
                 commonStyles.filterChip, 
-                selectedOccasion === '收藏' && commonStyles.filterChipSelected
+                selectedFilter === '收藏' && commonStyles.filterChipSelected
               ]}
-              textStyle={selectedOccasion === '收藏' ? commonStyles.filterChipTextSelected : {}}
+              textStyle={selectedFilter === '收藏' ? commonStyles.filterChipTextSelected : {}}
             >
               收藏
             </Chip>
             <Chip
-              selected={selectedOccasion === '最近'}
               onPress={() => handleTypeFilter('最近')}
               style={[
                 commonStyles.filterChip, 
-                selectedOccasion === '最近' && commonStyles.filterChipSelected
+                selectedFilter === '最近' && commonStyles.filterChipSelected
               ]}
-              textStyle={selectedOccasion === '最近' ? commonStyles.filterChipTextSelected : {}}
+              textStyle={selectedFilter === '最近' ? commonStyles.filterChipTextSelected : {}}
             >
               最近
             </Chip>
@@ -200,18 +208,27 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
       </View>
 
       {/* 用户筛选 */}
-      {users.length > 1 && (
+      {users.length > 0 && (
         <View style={commonStyles.filterContainer}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={commonStyles.filterRow}
           >
+            <Chip
+              onPress={() => handleUserFilter(null)}
+              style={[
+                commonStyles.filterChip,
+                !selectedUser && commonStyles.filterChipSelected
+              ]}
+              textStyle={!selectedUser ? commonStyles.filterChipTextSelected : {}}
+            >
+              全部
+            </Chip>
             {users.map((user) => {
               return (
                 <Chip
                   key={user.id}
-                  selected={selectedUser?.id === user.id}
                   onPress={() => handleUserFilter(user)}
                   style={[
                     commonStyles.filterChip,
@@ -229,12 +246,21 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
 
       {/* 穿搭网格 */}
       {filteredOutfits.length > 0 ? (
-        <FlatGrid
-          itemDimension={width / 2 - theme.spacing.lg}
+        <FlatList
           data={filteredOutfits}
-          style={commonStyles.gridContainer}
-          spacing={theme.spacing.sm}
-          renderItem={renderOutfitItem}
+          renderItem={({ item }: { item: Outfit }) => (
+            <OutfitCard
+              item={item}
+              onPress={() => handleOutfitPress(item)}
+              onToggleFavorite={handleToggleFavorite}
+              style={styles.outfitCardStyle}
+              users={users}
+            />
+          )}
+          keyExtractor={(item: Outfit) => item.id}
+          numColumns={2}
+          contentContainerStyle={commonStyles.gridContainer}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -264,7 +290,12 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
 };
 
 const styles = StyleSheet.create({
-  // 只保留不在commonStyles中的特殊样式（目前没有）
+  // 穿搭卡片样式，确保网格布局
+  outfitCardStyle: {
+    width: '48%', // 固定宽度为两列布局
+    marginHorizontal: '1%',
+    marginBottom: theme.spacing.md,
+  },
 });
 
 export default OutfitScreen; 

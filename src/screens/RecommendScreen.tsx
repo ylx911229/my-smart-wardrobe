@@ -259,12 +259,14 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
     try {
       const outfitData = {
         name: `${new Date().toLocaleDateString()}的推荐搭配`,
+        user_id: selectedUser.id,
         clothingIds: recommendation.outfit.map(item => item.id),
         date: new Date().toISOString(),
         imageUri: '', // 可以生成拼图或让用户拍照
         occasion: '日常',
         weather: weather ? `${weather.temperature}°C ${weather.condition}` : '',
         notes: recommendation.reason,
+        is_favorite: false,
         isVisible: true
       };
 
@@ -321,23 +323,38 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
       {users.length > 0 && (
         <Card style={commonStyles.card}>
           <Card.Content>
-            <Title style={commonStyles.sectionTitle}>选择主人</Title>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <Title style={commonStyles.sectionTitle}>选择用户</Title>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.userScrollContainer}
+            >
               {users.map((user) => (
                 <TouchableOpacity
                   key={user.id}
                   onPress={() => setSelectedUser(user)}
                   style={[
-                    styles.userItem,
-                    selectedUser?.id === user.id && styles.selectedUser
+                    styles.userCard,
+                    selectedUser?.id === user.id && styles.userCardSelected
                   ]}
+                  activeOpacity={0.7}
                 >
-                  <Avatar.Image
-                    size={60}
-                    source={user.photo_uri ? { uri: user.photo_uri } : { uri: 'https://via.placeholder.com/60' }}
-                    style={commonStyles.userAvatar}
-                  />
-                  <Text style={commonStyles.userName}>{user.name}</Text>
+                  <View style={[
+                    styles.avatarContainer,
+                    selectedUser?.id === user.id && styles.avatarContainerSelected
+                  ]}>
+                    <Avatar.Image
+                      size={50}
+                      source={user.photo_uri ? { uri: user.photo_uri } : { uri: 'https://via.placeholder.com/50' }}
+                      style={styles.avatarImage}
+                    />
+                  </View>
+                  <Text style={[
+                    styles.userCardName,
+                    selectedUser?.id === user.id && styles.userCardNameSelected
+                  ]} numberOfLines={1}>
+                    {user.name}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -471,15 +488,57 @@ const styles = StyleSheet.create({
   },
 
   // 用户选择特有样式
-  userItem: {
-    alignItems: 'center',
-    marginRight: theme.spacing.md,
-    padding: theme.spacing.sm,
-    borderRadius: theme.roundness,
+  userScrollContainer: {
+    paddingVertical: theme.spacing.sm,
   },
 
-  selectedUser: {
+  userCard: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    marginRight: theme.spacing.md,
+    borderRadius: theme.roundness,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 2,
+    borderColor: theme.colors.divider,
+    minWidth: 80,
+    ...theme.shadows.small,
+  },
+
+  userCardSelected: {
+    borderColor: theme.colors.primary,
     backgroundColor: theme.colors.cardBackground,
+  },
+
+  avatarContainer: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+
+  avatarContainerSelected: {
+    borderColor: theme.colors.primary,
+  },
+
+  avatarImage: {
+    borderRadius: 25,
+  },
+
+  userCardName: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: theme.colors.text,
+    textAlign: 'center',
+  },
+
+  userCardNameSelected: {
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
 
   // 推荐结果特有样式

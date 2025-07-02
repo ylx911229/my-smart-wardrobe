@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   categoryDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: theme.roundness,
     marginRight: 8,
   },
   categoryName: {
@@ -386,13 +386,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     backgroundColor: theme.colors.border,
-    borderRadius: 3,
+    borderRadius: theme.roundness,
     marginHorizontal: 12,
     overflow: 'hidden',
   },
   categoryBar: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: theme.roundness,
   },
   categoryPercentage: {
     width: 40,
@@ -410,13 +410,13 @@ const styles = StyleSheet.create({
   },
   activityBar: {
     height: 8,
-    borderRadius: 4,
+    borderRadius: theme.roundness,
     marginBottom: 8,
     overflow: 'hidden',
   },
   activityFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: theme.roundness,
   },
   activityLabel: {
     fontSize: 14,

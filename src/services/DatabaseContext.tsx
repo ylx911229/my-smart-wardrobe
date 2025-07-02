@@ -19,7 +19,7 @@ interface ClothingData {
 
 interface OutfitData {
   name?: string;
-  user_id: number;
+  user_id: string;
   photo_uri?: string;
   occasion?: string;
   weather?: string;
@@ -144,6 +144,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
         CREATE TABLE IF NOT EXISTS outfits (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
+          user_id TEXT,
           clothingIds TEXT NOT NULL,
           date TEXT NOT NULL,
           occasion TEXT,
@@ -151,6 +152,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
           imageUri TEXT,
           notes TEXT,
           rating INTEGER,
+          is_favorite INTEGER DEFAULT 0,
           isVisible INTEGER DEFAULT 1,
           createdAt TEXT NOT NULL,
           updatedAt TEXT NOT NULL
@@ -211,6 +213,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
       // 为outfits表添加缺失的列
       await addColumnIfNotExists(database, 'outfits', 'createdAt', `TEXT NOT NULL DEFAULT '${currentTime}'`);
       await addColumnIfNotExists(database, 'outfits', 'updatedAt', `TEXT NOT NULL DEFAULT '${currentTime}'`);
+      await addColumnIfNotExists(database, 'outfits', 'user_id', `TEXT`);
       await addColumnIfNotExists(database, 'outfits', 'clothingIds', `TEXT NOT NULL DEFAULT '[]'`);
       await addColumnIfNotExists(database, 'outfits', 'date', `TEXT NOT NULL DEFAULT '${currentTime}'`);
       await addColumnIfNotExists(database, 'outfits', 'isVisible', `INTEGER DEFAULT 1`);
@@ -219,6 +222,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
       await addColumnIfNotExists(database, 'outfits', 'occasion', `TEXT`);
       await addColumnIfNotExists(database, 'outfits', 'weather', `TEXT`);
       await addColumnIfNotExists(database, 'outfits', 'notes', `TEXT`);
+      await addColumnIfNotExists(database, 'outfits', 'is_favorite', `INTEGER DEFAULT 0`);
       
       // 为shopping_items表添加缺失的列
       await addColumnIfNotExists(database, 'shopping_items', 'createdAt', `TEXT NOT NULL DEFAULT '${currentTime}'`);
@@ -322,6 +326,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
       const outfitData = outfitRows.map((row: any) => ({
         id: row.id,
         name: row.name,
+        user_id: row.user_id,
         clothingIds: JSON.parse(row.clothingIds || '[]'),
         date: row.date,
         occasion: row.occasion || '',
@@ -329,6 +334,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
         imageUri: row.imageUri || '',
         notes: row.notes || '',
         rating: row.rating || 0,
+        is_favorite: row.is_favorite === 1,
         isVisible: row.isVisible === 1,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -479,11 +485,12 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
     try {
       await db.runAsync(
         `INSERT INTO outfits 
-        (id, name, clothingIds, date, occasion, weather, imageUri, notes, rating, isVisible, createdAt, updatedAt) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, name, user_id, clothingIds, date, occasion, weather, imageUri, notes, rating, is_favorite, isVisible, createdAt, updatedAt) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           outfitItem.id,
           outfitItem.name,
+          outfitItem.user_id || null,
           JSON.stringify(outfitItem.clothingIds),
           outfitItem.date,
           outfitItem.occasion || null,
@@ -491,6 +498,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
           outfitItem.imageUri || outfitItem.photo_uri || null,
           outfitItem.notes || null,
           outfitItem.rating || null,
+          outfitItem.is_favorite ? 1 : 0,
           outfitItem.isVisible ? 1 : 0,
           outfitItem.createdAt,
           outfitItem.updatedAt
@@ -513,6 +521,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
       .map(([key, value]) => {
         if (key === 'clothingIds') return JSON.stringify(value);
         if (key === 'isVisible') return value ? 1 : 0;
+        if (key === 'is_favorite') return value ? 1 : 0;
         return value ?? null;
       }) as (string | number | null)[];
 

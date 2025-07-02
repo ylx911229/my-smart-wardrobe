@@ -15,7 +15,7 @@ const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
 
   return (
     <TouchableOpacity onPress={() => onPress(item)} style={[styles.container, style]}>
-      <Card style={styles.card}>
+      <Card style={[styles.card, { flex: 0 }]} elevation={0}>
         <View style={styles.imageContainer}>
           {(() => {
             const photoUri = (item.photo_uri && typeof item.photo_uri === 'string' && item.photo_uri.trim()) 
@@ -47,9 +47,12 @@ const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
         </View>
         
         <Card.Content style={styles.content}>
+          {/* 名称 - 固定行 */}
           <Text style={styles.name} numberOfLines={1}>
             {(item.name && typeof item.name === 'string') ? item.name : '未命名衣物'}
           </Text>
+          
+          {/* 分类 - 固定行 */}
           <Chip 
             style={[styles.categoryChip, { backgroundColor: item.category_color || theme.colors.secondary }]}
             textStyle={styles.categoryText}
@@ -61,25 +64,42 @@ const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
               : '未分类'}
           </Chip>
           
-          {(item.brand && typeof item.brand === 'string' && item.brand.trim()) && (
-            <Text style={styles.brand} numberOfLines={1}>{item.brand.trim()}</Text>
-          )}
+          {/* 品牌 - 固定行（即使为空也占位） */}
+          <Text style={styles.brand} numberOfLines={1}>
+            {(item.brand && typeof item.brand === 'string' && item.brand.trim()) 
+              ? item.brand.trim() 
+              : ' '}
+          </Text>
           
+          {/* 颜色/尺码 - 固定行（即使为空也占位） */}
           <View style={styles.details}>
-            {(item.color && typeof item.color === 'string' && item.color.trim()) && (
-              <Text style={styles.detailText}>{item.color.trim()}</Text>
-            )}
-            {(item.size && typeof item.size === 'string' && item.size.trim()) && (
-              <Text style={styles.detailText}>{item.size.trim()}</Text>
-            )}
+            <Text style={styles.detailText}>
+              {(item.color && typeof item.color === 'string' && item.color.trim()) 
+                ? item.color.trim() 
+                : ' '}
+            </Text>
+            <Text style={styles.detailText}>
+              {(item.size && typeof item.size === 'string' && item.size.trim()) 
+                ? item.size.trim() 
+                : ' '}
+            </Text>
           </View>
           
-          {(item.location && typeof item.location === 'string' && item.location.trim()) && (
-            <View style={styles.locationContainer}>
-              <Ionicons name="location-outline" size={12} color={theme.colors.textSecondary} />
-              <Text style={styles.locationText} numberOfLines={1}>{item.location.trim()}</Text>
-            </View>
-          )}
+          {/* 位置 - 固定行（即使为空也占位） */}
+          <View style={styles.locationContainer}>
+            <Ionicons 
+              name="location-outline" 
+              size={12} 
+              color={(item.location && typeof item.location === 'string' && item.location.trim()) 
+                ? theme.colors.textSecondary 
+                : 'transparent'} 
+            />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {(item.location && typeof item.location === 'string' && item.location.trim()) 
+                ? item.location.trim() 
+                : ' '}
+            </Text>
+          </View>
         </Card.Content>
       </Card>
     </TouchableOpacity>
@@ -88,30 +108,32 @@ const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // 移除 flex: 1，让外部控制布局
   },
   
   card: {
     backgroundColor: theme.colors.surface,
+    borderRadius: theme.roundness,
     ...theme.shadows.small,
   },
   
   imageContainer: {
     position: 'relative',
     height: 150,
+    borderTopLeftRadius: theme.roundness,
+    borderTopRightRadius: theme.roundness,
+    overflow: 'hidden',
   },
   
   image: {
     width: '100%',
     height: '100%',
-    borderTopLeftRadius: theme.roundness,
-    borderTopRightRadius: theme.roundness,
   },
   
   placeholderImage: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#F5F5F5',
   },
   
   overlay: {
@@ -126,7 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     paddingHorizontal: theme.spacing.xs,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: theme.roundness,
   },
   
   activityText: {
@@ -137,6 +159,7 @@ const styles = StyleSheet.create({
   
   content: {
     padding: theme.spacing.sm,
+    height: 100, // 固定内容区域高度
   },
   
   name: {
@@ -160,12 +183,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.xs,
+    minHeight: 16, // 确保即使为空也占位
   },
   
   details: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: theme.spacing.xs,
+    minHeight: 14, // 确保即使为空也占位
   },
   
   detailText: {
@@ -176,6 +201,7 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 14, // 确保即使为空也占位
   },
   
   locationText: {

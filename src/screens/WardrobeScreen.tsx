@@ -56,11 +56,11 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
   ];
 
   useEffect(() => {
-    const filtered = filterClothes(clothing, searchQuery, selectedCategory);
+    const filtered = filterAndSortClothes(clothing, searchQuery, selectedCategory, currentSort);
     setFilteredClothes(filtered);
-  }, [clothing, searchQuery, selectedCategory]);
+  }, [clothing, searchQuery, selectedCategory, currentSort]);
 
-  const filterClothes = (clothesData: ClothingItem[], query: string, category: Category | null) => {
+  const filterAndSortClothes = (clothesData: ClothingItem[], query: string, category: Category | null, sortBy: string) => {
     let filtered = [...clothesData];
 
     // 按分类过滤
@@ -77,6 +77,26 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
         item.color?.toLowerCase().includes(lowercaseQuery)
       );
     }
+
+    // 排序
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'created_at DESC':
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        case 'created_at ASC':
+          return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+        case 'activity_score DESC':
+          return (b.activity_score || 0) - (a.activity_score || 0);
+        case 'activity_score ASC':
+          return (a.activity_score || 0) - (b.activity_score || 0);
+        case 'name ASC':
+          return a.name.localeCompare(b.name);
+        case 'name DESC':
+          return b.name.localeCompare(a.name);
+        default:
+          return 0;
+      }
+    });
 
     return filtered;
   };
@@ -99,11 +119,16 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
     navigation.navigate('ClothingDetail', { clothing: item });
   };
 
+  const getCurrentSortLabel = () => {
+    const currentOption = sortOptions.find(option => option.value === currentSort);
+    return currentOption?.label || '排序';
+  };
+
   const renderClothingItem = ({ item }: { item: ClothingItem }) => (
     <ClothingCard
       item={item}
       onPress={handleClothingPress}
-      style={styles.clothingCard}
+      style={styles.gridItem}
     />
   );
 
@@ -122,51 +147,53 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
 
       {/* 筛选选项 */}
       <View style={commonStyles.filterContainer}>
-        {/* 分类筛选 */}
-        <FlatList
-          horizontal
-          data={categories}
-          keyExtractor={item => item.id.toString()}
-          renderItem={({ item: category }) => (
-            <Chip
-              key={category.id}
-              selected={selectedCategory?.id === category.id}
-              onPress={() => handleCategoryFilter(category)}
-              style={[
-                commonStyles.filterChip,
-                selectedCategory?.id === category.id && commonStyles.filterChipSelected
-              ]}
-              textStyle={selectedCategory?.id === category.id ? commonStyles.filterChipTextSelected : {}}
-            >
-              {category.name}
-            </Chip>
-          )}
-          contentContainerStyle={commonStyles.filterRow}
-          showsHorizontalScrollIndicator={false}
-        />
+        <View style={styles.filterRow}>
+          {/* 分类筛选 */}
+          <FlatList
+            horizontal
+            data={categories}
+            keyExtractor={item => item.id.toString()}
+            renderItem={({ item: category }) => (
+              <Chip
+                key={category.id}
+                onPress={() => handleCategoryFilter(category)}
+                style={[
+                  commonStyles.filterChip,
+                  selectedCategory?.id === category.id && commonStyles.filterChipSelected
+                ]}
+                textStyle={selectedCategory?.id === category.id ? commonStyles.filterChipTextSelected : {}}
+              >
+                {category.name}
+              </Chip>
+            )}
+            contentContainerStyle={commonStyles.filterRow}
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriesList}
+          />
 
-        {/* 排序菜单 */}
-        <Menu
-          visible={sortMenuVisible}
-          onDismiss={() => setSortMenuVisible(false)}
-          anchor={
-            <Button
-              mode="outlined"
-              onPress={() => setSortMenuVisible(true)}
-              style={[commonStyles.secondaryButton, styles.sortButton]}
-            >
-              排序
-            </Button>
-          }
-        >
-          {sortOptions.map((option) => (
-            <Menu.Item
-              key={option.value}
-              onPress={() => handleSort(option.value)}
-              title={option.label}
-            />
-          ))}
-        </Menu>
+          {/* 排序菜单 */}
+          <Menu
+            visible={sortMenuVisible}
+            onDismiss={() => setSortMenuVisible(false)}
+            anchor={
+              <Chip
+                onPress={() => setSortMenuVisible(true)}
+                style={styles.sortChip}
+                textStyle={styles.sortChipText}
+              >
+                {getCurrentSortLabel()}
+              </Chip>
+            }
+          >
+            {sortOptions.map((option) => (
+              <Menu.Item
+                key={option.value}
+                onPress={() => handleSort(option.value)}
+                title={option.label}
+              />
+            ))}
+          </Menu>
+        </View>
       </View>
 
       {/* 衣物列表 */}
@@ -178,6 +205,7 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
           numColumns={2}
           contentContainerStyle={commonStyles.gridContainer}
           showsVerticalScrollIndicator={false}
+          key="two-columns"
         />
       ) : (
         <View style={commonStyles.emptyState}>
@@ -200,16 +228,35 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
 };
 
 const styles = StyleSheet.create({
-  // 排序按钮的特殊位置
-  sortButton: {
-    alignSelf: 'flex-end',
-    marginTop: theme.spacing.sm,
+  // 筛选行布局
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   
-  // 衣物卡片的特殊样式
-  clothingCard: {
+  // 分类列表
+  categoriesList: {
     flex: 1,
-    marginHorizontal: theme.spacing.xs,
+    marginRight: theme.spacing.md,
+  },
+  
+  // 排序chip样式（模仿filterChip但保持outlined风格）
+  sortChip: {
+    marginRight: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.primary,
+    borderWidth: 1,
+  },
+  
+  sortChipText: {
+    color: theme.colors.primary,
+  },
+  
+  // 强制网格项样式，确保固定两列
+  gridItem: {
+    width: '48%', // 明确指定宽度而不是使用flex
+    marginHorizontal: '1%',
     marginBottom: theme.spacing.md,
   },
 });

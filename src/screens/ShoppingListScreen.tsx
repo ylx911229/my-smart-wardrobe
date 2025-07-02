@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   priorityDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: theme.roundness,
   },
 });
 
