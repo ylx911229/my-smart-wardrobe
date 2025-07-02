@@ -27,26 +27,41 @@ const Stack = createStackNavigator();
 // 衣柜相关页面堆栈
 function WardrobeStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: theme.colors.primary } }}>
+    <Stack.Navigator screenOptions={{ 
+      headerShown: false,
+      headerStyle: { backgroundColor: theme.colors.primary } 
+    }}>
       <Stack.Screen 
         name="WardrobeMain" 
         component={WardrobeScreen} 
-        options={{ title: '我的衣柜' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="AddClothing" 
         component={AddClothingScreen} 
-        options={{ title: '添加衣物' }}
+        options={{ 
+          headerShown: true,
+          title: '添加衣物',
+          headerTintColor: theme.colors.textLight
+        }}
       />
       <Stack.Screen 
         name="ClothingDetail" 
         component={ClothingDetailScreen as any} 
-        options={{ title: '衣物详情' }}
+        options={{ 
+          headerShown: true,
+          title: '衣物详情',
+          headerTintColor: theme.colors.textLight
+        }}
       />
       <Stack.Screen 
         name="Camera" 
         component={CameraScreen as any} 
-        options={{ title: '拍照' }}
+        options={{ 
+          headerShown: true,
+          title: '拍照',
+          headerTintColor: theme.colors.textLight
+        }}
       />
     </Stack.Navigator>
   );
@@ -55,16 +70,23 @@ function WardrobeStack() {
 // 穿搭相关页面堆栈
 function OutfitStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: theme.colors.primary } }}>
+    <Stack.Navigator screenOptions={{ 
+      headerShown: false,
+      headerStyle: { backgroundColor: theme.colors.primary } 
+    }}>
       <Stack.Screen 
         name="OutfitMain" 
         component={OutfitScreen} 
-        options={{ title: '我的穿搭' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="OutfitDetail" 
         component={OutfitDetailScreen as any} 
-        options={{ title: '穿搭详情' }}
+        options={{ 
+          headerShown: true,
+          title: '穿搭详情',
+          headerTintColor: theme.colors.textLight
+        }}
       />
     </Stack.Navigator>
   );
@@ -73,21 +95,32 @@ function OutfitStack() {
 // 个人资料相关页面堆栈
 function ProfileStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: theme.colors.primary } }}>
+    <Stack.Navigator screenOptions={{ 
+      headerShown: false,
+      headerStyle: { backgroundColor: theme.colors.primary } 
+    }}>
       <Stack.Screen 
         name="ProfileMain" 
         component={ProfileScreen} 
-        options={{ title: '个人中心' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="Statistics" 
         component={StatisticsScreen} 
-        options={{ title: '数据统计' }}
+        options={{ 
+          headerShown: true,
+          title: '数据统计',
+          headerTintColor: theme.colors.textLight
+        }}
       />
       <Stack.Screen 
         name="ShoppingList" 
         component={ShoppingListScreen} 
-        options={{ title: '购物清单' }}
+        options={{ 
+          headerShown: true,
+          title: '购物清单',
+          headerTintColor: theme.colors.textLight
+        }}
       />
     </Stack.Navigator>
   );

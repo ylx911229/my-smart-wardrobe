@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import * as SQLite from 'expo-sqlite';
-import { DatabaseContextType, ClothingItem, Outfit, ShoppingItem } from '../types';
+import { DatabaseContextType, ClothingItem, Outfit, ShoppingItem, User } from '../types';
 
 // 数据库操作的参数类型
 interface ClothingData {
@@ -46,6 +46,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
   const [clothing, setClothing] = useState<ClothingItem[]>([]);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     initDatabase();
@@ -74,6 +75,45 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
 
   const createTables = async (database: SQLite.SQLiteDatabase): Promise<void> => {
     try {
+      // 检查用户表是否存在且结构正确
+      let shouldRecreateUsersTable = false;
+      try {
+        const tableInfo = await database.getAllAsync(`PRAGMA table_info(users)`);
+        // 检查是否缺少必要的列
+        const requiredColumns = ['id', 'name', 'photo_uri', 'isDefault', 'createdAt', 'updatedAt'];
+        const existingColumns = tableInfo.map((col: any) => col.name);
+        const missingColumns = requiredColumns.filter(col => !existingColumns.includes(col));
+        
+        if (missingColumns.length > 0) {
+          console.log('Users table structure is incomplete, missing columns:', missingColumns);
+          shouldRecreateUsersTable = true;
+        }
+      } catch (error) {
+        // 表不存在
+        console.log('Users table does not exist, will create it');
+        shouldRecreateUsersTable = true;
+      }
+
+      // 只有在必要时才删除并重建用户表
+      if (shouldRecreateUsersTable) {
+        console.log('Recreating users table...');
+        await database.execAsync(`DROP TABLE IF EXISTS users;`);
+        
+        await database.execAsync(`
+          CREATE TABLE users (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            photo_uri TEXT,
+            isDefault INTEGER DEFAULT 0,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL
+          );
+        `);
+        console.log('Users table recreated successfully');
+      } else {
+        console.log('Users table already exists with correct structure');
+      }
+
       // 衣物表
       await database.execAsync(`
         CREATE TABLE IF NOT EXISTS clothing (
@@ -149,6 +189,8 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
       // 检查并添加缺失的列
       const currentTime = new Date().toISOString();
       
+      // 跳过users表的迁移，因为我们已经重新创建了
+      
       // 为clothing表添加缺失的列
       await addColumnIfNotExists(database, 'clothing', 'createdAt', `TEXT NOT NULL DEFAULT '${currentTime}'`);
       await addColumnIfNotExists(database, 'clothing', 'updatedAt', `TEXT NOT NULL DEFAULT '${currentTime}'`);
@@ -183,10 +225,31 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
       await addColumnIfNotExists(database, 'shopping_items', 'updatedAt', `TEXT NOT NULL DEFAULT '${currentTime}'`);
       await addColumnIfNotExists(database, 'shopping_items', 'isCompleted', `INTEGER DEFAULT 0`);
       
+      // 初始化默认用户
+      await initDefaultUser(database);
+      
       console.log('Database migration completed successfully');
     } catch (error) {
       console.error('Database migration error:', error);
       // 不抛出错误，允许应用继续运行
+    }
+  };
+
+  // 初始化默认用户
+  const initDefaultUser = async (database: SQLite.SQLiteDatabase): Promise<void> => {
+    try {
+      const existingUsers = await database.getAllAsync(`SELECT * FROM users WHERE isDefault = 1`);
+      if (existingUsers.length === 0) {
+        const currentTime = new Date().toISOString();
+        await database.runAsync(
+          `INSERT INTO users (id, name, photo_uri, isDefault, createdAt, updatedAt) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          ['default-user', '我', '', 1, currentTime, currentTime]
+        );
+        console.log('Default user created');
+      }
+    } catch (error) {
+      console.error('Error initializing default user:', error);
     }
   };
 
@@ -212,186 +275,93 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
 
   const refreshDataWithDatabase = async (database: SQLite.SQLiteDatabase): Promise<void> => {
     try {
-      // 获取衣物数据
-      let clothingItems: ClothingItem[] = [];
-      try {
-        const clothingResult = await database.getAllAsync('SELECT * FROM clothing ORDER BY updatedAt DESC');
-        clothingItems = clothingResult.map((item: any) => ({
-          ...item,
-          tags: item.tags ? JSON.parse(item.tags) : [],
-          isVisible: Boolean(item.isVisible),
-        }));
-      } catch (clothingError) {
-        console.error('Error loading clothing data:', clothingError);
-        // 尝试不使用ORDER BY的查询作为后备
-        try {
-          const fallbackResult = await database.getAllAsync('SELECT * FROM clothing');
-          clothingItems = fallbackResult.map((item: any) => ({
-            ...item,
-            tags: item.tags ? JSON.parse(item.tags) : [],
-            isVisible: Boolean(item.isVisible),
-            createdAt: item.createdAt || new Date().toISOString(),
-            updatedAt: item.updatedAt || new Date().toISOString(),
-          }));
-        } catch (fallbackError) {
-          console.error('Fallback clothing query also failed:', fallbackError);
-        }
-      }
-      setClothing(clothingItems);
+      console.log('Refreshing data...');
+      
+      // 加载用户数据
+      const userRows = await database.getAllAsync(`SELECT * FROM users ORDER BY isDefault DESC, createdAt ASC`);
+      console.log('Raw user data from database:', userRows);
+      
+      const usersData = userRows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        photo_uri: row.photo_uri || '',
+        isDefault: row.isDefault === 1,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+      setUsers(usersData);
+      console.log('Processed users data:', usersData);
+      
+      // 加载衣物数据
+      const clothingRows = await database.getAllAsync(`SELECT * FROM clothing WHERE isVisible = 1 ORDER BY createdAt DESC`);
+      const clothingData = clothingRows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        color: row.color,
+        brand: row.brand || '',
+        price: row.price || 0,
+        purchaseDate: row.purchaseDate || '',
+        imageUri: row.imageUri || '',
+        tags: JSON.parse(row.tags || '[]'),
+        season: row.season || '全季',
+        material: row.material || '',
+        size: row.size || '',
+        isVisible: row.isVisible === 1,
+        notes: row.notes || '',
+        lastWorn: row.lastWorn || '',
+        wearCount: row.wearCount || 0,
+        rating: row.rating || 0,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+      setClothing(clothingData);
 
-             // 获取穿搭数据
-       let outfitItems: Outfit[] = [];
-       try {
-         const outfitsResult = await database.getAllAsync('SELECT * FROM outfits ORDER BY updatedAt DESC');
-         outfitItems = outfitsResult.map((item: any) => ({
-           ...item,
-           clothingIds: item.clothingIds ? JSON.parse(item.clothingIds) : [],
-           isVisible: Boolean(item.isVisible),
-           photo_uri: item.imageUri || item.photo_uri || null,
-           created_at: item.createdAt,
-         }));
-      } catch (outfitError) {
-        console.error('Error loading outfit data:', outfitError);
-        // 尝试不使用ORDER BY的查询作为后备
-                 try {
-           const fallbackResult = await database.getAllAsync('SELECT * FROM outfits');
-           outfitItems = fallbackResult.map((item: any) => ({
-             ...item,
-             clothingIds: item.clothingIds ? JSON.parse(item.clothingIds) : [],
-             isVisible: Boolean(item.isVisible),
-             photo_uri: item.imageUri || item.photo_uri || null,
-             created_at: item.createdAt,
-             createdAt: item.createdAt || new Date().toISOString(),
-             updatedAt: item.updatedAt || new Date().toISOString(),
-           }));
-         } catch (fallbackError) {
-          console.error('Fallback outfit query also failed:', fallbackError);
-        }
-      }
-      setOutfits(outfitItems);
+      // 加载穿搭数据
+      const outfitRows = await database.getAllAsync(`SELECT * FROM outfits WHERE isVisible = 1 ORDER BY createdAt DESC`);
+      const outfitData = outfitRows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        clothingIds: JSON.parse(row.clothingIds || '[]'),
+        date: row.date,
+        occasion: row.occasion || '',
+        weather: row.weather || '',
+        imageUri: row.imageUri || '',
+        notes: row.notes || '',
+        rating: row.rating || 0,
+        isVisible: row.isVisible === 1,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+      setOutfits(outfitData);
 
-      // 获取购物清单数据
-      let shoppingItems: ShoppingItem[] = [];
-      try {
-        const shoppingResult = await database.getAllAsync('SELECT * FROM shopping_items ORDER BY updatedAt DESC');
-        shoppingItems = shoppingResult.map((item: any) => ({
-          ...item,
-          isCompleted: Boolean(item.isCompleted),
-        }));
-      } catch (shoppingError) {
-        console.error('Error loading shopping data:', shoppingError);
-        // 尝试不使用ORDER BY的查询作为后备
-        try {
-          const fallbackResult = await database.getAllAsync('SELECT * FROM shopping_items');
-          shoppingItems = fallbackResult.map((item: any) => ({
-            ...item,
-            isCompleted: Boolean(item.isCompleted),
-            createdAt: item.createdAt || new Date().toISOString(),
-            updatedAt: item.updatedAt || new Date().toISOString(),
-          }));
-        } catch (fallbackError) {
-          console.error('Fallback shopping query also failed:', fallbackError);
-        }
-      }
-      setShoppingList(shoppingItems);
+      // 加载购物清单数据
+      const shoppingRows = await database.getAllAsync(`SELECT * FROM shopping_items ORDER BY createdAt DESC`);
+      const shoppingData = shoppingRows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        category: row.category,
+        priority: row.priority as 'high' | 'medium' | 'low',
+        estimatedPrice: row.estimatedPrice || 0,
+        notes: row.notes || '',
+        isCompleted: row.isCompleted === 1,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }));
+      setShoppingList(shoppingData);
 
-      console.log('Data refreshed successfully');
+      console.log(`Data loaded: ${clothingData.length} clothing items, ${outfitData.length} outfits, ${shoppingData.length} shopping items, ${usersData.length} users`);
     } catch (error) {
       console.error('Error refreshing data:', error);
     }
   };
 
   const refreshData = async (): Promise<void> => {
-    if (!db) return;
-    
-    try {
-      // 获取衣物数据
-      let clothingItems: ClothingItem[] = [];
-      try {
-        const clothingResult = await db.getAllAsync('SELECT * FROM clothing ORDER BY updatedAt DESC');
-        clothingItems = clothingResult.map((item: any) => ({
-          ...item,
-          tags: item.tags ? JSON.parse(item.tags) : [],
-          isVisible: Boolean(item.isVisible),
-        }));
-      } catch (clothingError) {
-        console.error('Error loading clothing data:', clothingError);
-        // 尝试不使用ORDER BY的查询作为后备
-        try {
-          const fallbackResult = await db.getAllAsync('SELECT * FROM clothing');
-          clothingItems = fallbackResult.map((item: any) => ({
-            ...item,
-            tags: item.tags ? JSON.parse(item.tags) : [],
-            isVisible: Boolean(item.isVisible),
-            createdAt: item.createdAt || new Date().toISOString(),
-            updatedAt: item.updatedAt || new Date().toISOString(),
-          }));
-        } catch (fallbackError) {
-          console.error('Fallback clothing query also failed:', fallbackError);
-        }
-      }
-      setClothing(clothingItems);
-
-      // 获取穿搭数据
-      let outfitItems: Outfit[] = [];
-      try {
-        const outfitsResult = await db.getAllAsync('SELECT * FROM outfits ORDER BY updatedAt DESC');
-        outfitItems = outfitsResult.map((item: any) => ({
-          ...item,
-          clothingIds: item.clothingIds ? JSON.parse(item.clothingIds) : [],
-          isVisible: Boolean(item.isVisible),
-          photo_uri: item.imageUri || item.photo_uri || null,
-          created_at: item.createdAt,
-        }));
-      } catch (outfitError) {
-        console.error('Error loading outfit data:', outfitError);
-        // 尝试不使用ORDER BY的查询作为后备
-        try {
-          const fallbackResult = await db.getAllAsync('SELECT * FROM outfits');
-          outfitItems = fallbackResult.map((item: any) => ({
-            ...item,
-            clothingIds: item.clothingIds ? JSON.parse(item.clothingIds) : [],
-            isVisible: Boolean(item.isVisible),
-            photo_uri: item.imageUri || item.photo_uri || null,
-            created_at: item.createdAt,
-            createdAt: item.createdAt || new Date().toISOString(),
-            updatedAt: item.updatedAt || new Date().toISOString(),
-          }));
-        } catch (fallbackError) {
-          console.error('Fallback outfit query also failed:', fallbackError);
-        }
-      }
-      setOutfits(outfitItems);
-
-      // 获取购物清单数据
-      let shoppingItems: ShoppingItem[] = [];
-      try {
-        const shoppingResult = await db.getAllAsync('SELECT * FROM shopping_items ORDER BY updatedAt DESC');
-        shoppingItems = shoppingResult.map((item: any) => ({
-          ...item,
-          isCompleted: Boolean(item.isCompleted),
-        }));
-      } catch (shoppingError) {
-        console.error('Error loading shopping data:', shoppingError);
-        // 尝试不使用ORDER BY的查询作为后备
-        try {
-          const fallbackResult = await db.getAllAsync('SELECT * FROM shopping_items');
-          shoppingItems = fallbackResult.map((item: any) => ({
-            ...item,
-            isCompleted: Boolean(item.isCompleted),
-            createdAt: item.createdAt || new Date().toISOString(),
-            updatedAt: item.updatedAt || new Date().toISOString(),
-          }));
-        } catch (fallbackError) {
-          console.error('Fallback shopping query also failed:', fallbackError);
-        }
-      }
-      setShoppingList(shoppingItems);
-
-      console.log('Data refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing data:', error);
+    if (!db) {
+      console.warn('Database not initialized');
+      return;
     }
+    await refreshDataWithDatabase(db);
   };
 
   // 衣物操作
@@ -400,12 +370,24 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
     
     const id = Date.now().toString();
     const now = new Date().toISOString();
+    
+    // 确保图片字段正确映射
+    const imageUri = item.imageUri || item.photo_uri || '';
+    
     const clothingItem: ClothingItem = {
       ...item,
       id,
+      imageUri, // 统一使用imageUri字段
       createdAt: now,
       updatedAt: now,
     };
+
+    console.log('Adding clothing item:', {
+      id,
+      name: clothingItem.name,
+      imageUri: clothingItem.imageUri,
+      photo_uri: item.photo_uri
+    });
 
     try {
       await db.runAsync(
@@ -435,6 +417,8 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
           clothingItem.updatedAt
         ]
       );
+      
+      console.log('Clothing item added successfully, refreshing data...');
       await refreshData();
     } catch (error) {
       console.error('Error adding clothing:', error);
@@ -629,10 +613,99 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
     }
   };
 
+  // 用户相关操作
+  const addUser = async (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> => {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const currentTime = new Date().toISOString();
+      
+      console.log('Adding user:', { id, name: user.name, photo_uri: user.photo_uri });
+      
+      await db.runAsync(
+        `INSERT INTO users (id, name, photo_uri, isDefault, createdAt, updatedAt) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [id, user.name, user.photo_uri || '', 0, currentTime, currentTime]
+      );
+
+      console.log('User inserted successfully, refreshing data...');
+      
+      // 刷新用户数据
+      await refreshData();
+      console.log('User added successfully');
+    } catch (error) {
+      console.error('Error adding user:', error);
+      throw error;
+    }
+  };
+
+  const updateUser = async (id: string, updates: Partial<User>): Promise<void> => {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      const currentTime = new Date().toISOString();
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+
+      if (updates.name !== undefined) {
+        updateFields.push('name = ?');
+        updateValues.push(updates.name);
+      }
+      if (updates.photo_uri !== undefined) {
+        updateFields.push('photo_uri = ?');
+        updateValues.push(updates.photo_uri);
+      }
+
+      updateFields.push('updatedAt = ?');
+      updateValues.push(currentTime);
+      updateValues.push(id);
+
+      await db.runAsync(
+        `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
+        updateValues
+      );
+
+      await refreshData();
+      console.log('User updated successfully');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw error;
+    }
+  };
+
+  const deleteUser = async (id: string): Promise<void> => {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      // 不允许删除默认用户
+      const user = users.find(u => u.id === id);
+      if (user?.isDefault) {
+        throw new Error('Cannot delete default user');
+      }
+
+      await db.runAsync('DELETE FROM users WHERE id = ? AND isDefault = 0', [id]);
+      await refreshData();
+      console.log('User deleted successfully');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  };
+
   const value: DatabaseContextType = {
+    isLoading,
     clothing,
     outfits,
     shoppingList,
+    users,
+    refreshData,
     addClothing,
     updateClothing,
     deleteClothing,
@@ -642,8 +715,9 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
     addShoppingItem,
     updateShoppingItem,
     deleteShoppingItem,
-    initializeDatabase: initDatabase,
-    refreshData,
+    addUser,
+    updateUser,
+    deleteUser,
   };
 
   return (

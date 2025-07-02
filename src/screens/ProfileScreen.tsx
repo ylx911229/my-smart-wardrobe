@@ -7,6 +7,7 @@ import {
   Image,
   TouchableOpacity
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
   Title,
@@ -24,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { theme } from '../styles/theme';
+import { commonStyles } from '../styles/commonStyles';
 import { useDatabase } from '../services/DatabaseContext';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { ProfileStackParamList, User } from '../types';
@@ -44,9 +46,8 @@ interface StatsData {
 }
 
 const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
-  const { clothing, outfits } = useDatabase();
+  const { clothing, outfits, users, addUser } = useDatabase();
   
-  const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<StatsData>({
     totalClothes: 0,
     totalOutfits: 0,
@@ -63,12 +64,6 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
 
   const loadData = async () => {
     try {
-      // 使用模拟用户数据
-      const defaultUsers: User[] = [
-        { id: 1, name: '我', photo_uri: '', created_at: new Date().toISOString() }
-      ];
-      setUsers(defaultUsers);
-      
       // 计算统计数据
       const categoryCount: { [key: string]: number } = {};
       clothing.forEach(item => {
@@ -127,14 +122,11 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
     setLoading(true);
     
     try {
-      // TODO: 实现添加用户功能
-      const newUser: User = {
-        id: users.length + 1,
+      await addUser({
         name: newUserName.trim(),
         photo_uri: newUserPhoto,
-        created_at: new Date().toISOString()
-      };
-      setUsers([...users, newUser]);
+      });
+      
       setNewUserName('');
       setNewUserPhoto('');
       setShowAddUserModal(false);
@@ -169,17 +161,18 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
   ];
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={commonStyles.container}>
+      <ScrollView style={commonStyles.contentContainer}>
       {/* 用户管理卡片 */}
-      <Card style={styles.usersCard}>
+      <Card style={commonStyles.card}>
         <Card.Content>
           <View style={styles.sectionHeader}>
-            <Title style={styles.sectionTitle}>用户管理</Title>
+            <Title style={commonStyles.sectionTitle}>用户管理</Title>
             <Button
               mode="outlined"
               onPress={handleAddUser}
               icon="plus"
-              style={styles.addButton}
+              style={commonStyles.secondaryButton}
             >
               添加
             </Button>
@@ -188,33 +181,33 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
           {users.length > 0 ? (
             <View style={styles.usersList}>
               {users.map((user, index) => (
-                <View key={user.id}>
-                  <View style={styles.userItem}>
-                    {user.photo_uri ? (
-                      <Avatar.Image
-                        size={50}
-                        source={{ uri: user.photo_uri }}
-                        style={styles.userAvatar}
-                      />
-                    ) : (
-                      <Avatar.Icon
-                        size={50}
-                        icon="account"
-                        style={styles.userAvatar}
-                      />
-                    )}
-                    <View style={styles.userInfo}>
-                      <Text style={styles.userName}>{user.name}</Text>
-                      <Text style={styles.userDate}>
-                        创建于 {user.created_at ? new Date(user.created_at).toLocaleDateString('zh-CN') : '未知'}
-                      </Text>
+                                  <View key={user.id}>
+                    <View style={commonStyles.userItem}>
+                      {user.photo_uri ? (
+                        <Avatar.Image
+                          size={50}
+                          source={{ uri: user.photo_uri }}
+                          style={commonStyles.userAvatar}
+                        />
+                      ) : (
+                        <Avatar.Icon
+                          size={50}
+                          icon="account"
+                          style={commonStyles.userAvatar}
+                        />
+                      )}
+                      <View style={commonStyles.userInfo}>
+                        <Text style={commonStyles.userName}>{user.name}</Text>
+                        <Text style={commonStyles.userSubtext}>
+                          创建于 {user.createdAt ? new Date(user.createdAt).toLocaleDateString('zh-CN') : '未知'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity style={styles.userActions}>
+                        <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity style={styles.userActions}>
-                      <Ionicons name="create-outline" size={20} color={theme.colors.primary} />
-                    </TouchableOpacity>
+                    {index < users.length - 1 && <Divider style={commonStyles.divider} />}
                   </View>
-                  {index < users.length - 1 && <Divider style={styles.userDivider} />}
-                </View>
               ))}
             </View>
           ) : (
@@ -228,22 +221,22 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
       </Card>
 
       {/* 统计信息卡片 */}
-      <Card style={styles.statsCard}>
+      <Card style={commonStyles.card}>
         <Card.Content>
-          <Title style={styles.sectionTitle}>数据概览</Title>
+          <Title style={commonStyles.sectionTitle}>数据概览</Title>
           
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.totalClothes}</Text>
-              <Text style={styles.statLabel}>件衣物</Text>
+          <View style={commonStyles.statsContainer}>
+            <View style={commonStyles.statItem}>
+              <Text style={commonStyles.statNumber}>{stats.totalClothes}</Text>
+              <Text style={commonStyles.statLabel}>件衣物</Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.totalOutfits}</Text>
-              <Text style={styles.statLabel}>套穿搭</Text>
+            <View style={commonStyles.statItem}>
+              <Text style={commonStyles.statNumber}>{stats.totalOutfits}</Text>
+              <Text style={commonStyles.statLabel}>套穿搭</Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{users.length}</Text>
-              <Text style={styles.statLabel}>个用户</Text>
+            <View style={commonStyles.statItem}>
+              <Text style={commonStyles.statNumber}>{users.length}</Text>
+              <Text style={commonStyles.statLabel}>个用户</Text>
             </View>
           </View>
 
@@ -262,9 +255,9 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
       </Card>
 
       {/* 功能菜单 */}
-      <Card style={styles.menuCard}>
+      <Card style={commonStyles.card}>
         <Card.Content>
-          <Title style={styles.sectionTitle}>功能菜单</Title>
+          <Title style={commonStyles.sectionTitle}>功能菜单</Title>
           
           <View style={styles.menuList}>
             {menuItems.map((item, index) => (
@@ -289,9 +282,9 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
         <Modal
           visible={showAddUserModal}
           onDismiss={handleCancelAddUser}
-          contentContainerStyle={styles.modal}
+          contentContainerStyle={commonStyles.modal}
         >
-          <Title style={styles.modalTitle}>添加新用户</Title>
+          <Title style={commonStyles.modalTitle}>添加新用户</Title>
           
           <TouchableOpacity onPress={pickUserPhoto} style={styles.photoSelector}>
             {newUserPhoto ? (
@@ -308,15 +301,15 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
             label="用户名称"
             value={newUserName}
             onChangeText={setNewUserName}
-            style={styles.userNameInput}
+            style={commonStyles.formInput}
             mode="outlined"
           />
 
-          <View style={styles.modalButtons}>
+          <View style={commonStyles.buttonRow}>
             <Button
               mode="outlined"
               onPress={handleCancelAddUser}
-              style={styles.modalButton}
+              style={[commonStyles.secondaryButton, commonStyles.buttonHalf]}
             >
               取消
             </Button>
@@ -325,29 +318,20 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
               onPress={handleSaveUser}
               loading={loading}
               disabled={loading}
-              style={styles.modalButton}
+              style={[commonStyles.primaryButton, commonStyles.buttonHalf]}
             >
               保存
             </Button>
           </View>
         </Modal>
       </Portal>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.md,
-  },
-
-  usersCard: {
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-
+  // 头部区域
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -355,49 +339,13 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
 
-  sectionTitle: {
-    color: theme.colors.primary,
-  },
-
-  addButton: {
-    borderColor: theme.colors.primary,
-  },
-
+  // 用户管理特有样式
   usersList: {
     marginTop: theme.spacing.sm,
   },
 
-  userItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
-  },
-
-  userAvatar: {
-    marginRight: theme.spacing.md,
-  },
-
-  userInfo: {
-    flex: 1,
-  },
-
-  userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: theme.spacing.xs,
-  },
-
-  userDate: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-  },
-
   userActions: {
     padding: theme.spacing.sm,
-  },
-
-  userDivider: {
-    marginVertical: theme.spacing.sm,
   },
 
   emptyUsers: {
@@ -418,33 +366,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  statsCard: {
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: theme.spacing.lg,
-  },
-
-  statItem: {
-    alignItems: 'center',
-  },
-
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.xs,
-  },
-
-  statLabel: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-  },
-
+  // 分类统计特有样式
   categoriesSection: {
     borderTopWidth: 1,
     borderTopColor: theme.colors.divider,
@@ -474,11 +396,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
 
-  menuCard: {
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-
+  // 菜单特有样式
   menuList: {
     marginTop: theme.spacing.sm,
   },
@@ -487,19 +405,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
 
-  modal: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.lg,
-    margin: theme.spacing.lg,
-    borderRadius: theme.roundness,
-  },
-
-  modalTitle: {
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-    color: theme.colors.primary,
-  },
-
+  // 照片选择器特有样式
   photoSelector: {
     alignSelf: 'center',
     marginBottom: theme.spacing.lg,
@@ -527,20 +433,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
-  },
-
-  userNameInput: {
-    marginBottom: theme.spacing.lg,
-    backgroundColor: theme.colors.background,
-  },
-
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-
-  modalButton: {
-    flex: 0.4,
   },
 });
 

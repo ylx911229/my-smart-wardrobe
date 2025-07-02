@@ -100,7 +100,7 @@ const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) 
     <ScrollView style={styles.container}>
       {/* 衣物图片 */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: clothing.photo_uri }} style={styles.image} />
+        <Image source={{ uri: clothing.imageUri || clothing.photo_uri || '' }} style={styles.image} />
         <View style={styles.imageOverlay}>
           <IconButton
             icon="share-variant"

@@ -47,7 +47,7 @@ const OutfitCard = ({ item, onPress, style }: OutfitCardProps) => {
         </View>
 
         {item?.photo_uri && typeof item.photo_uri === 'string' && item.photo_uri.trim() !== '' && (
-          <Image source={{ uri: item.photo_uri.trim() }} style={styles.outfitImage} />
+          <Image source={{ uri: (item.imageUri || item.photo_uri || '').trim() }} style={styles.outfitImage} />
         )}
 
         <Card.Content style={styles.cardContent}>

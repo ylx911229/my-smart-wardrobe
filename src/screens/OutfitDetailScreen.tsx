@@ -86,7 +86,7 @@ const OutfitDetailScreen = ({ route, navigation }: OutfitDetailScreenProps) => {
       {/* 穿搭图片 */}
       {outfit.photo_uri && (
         <View style={styles.imageContainer}>
-          <Image source={{ uri: outfit.photo_uri }} style={styles.image} />
+          <Image source={{ uri: outfit.imageUri || outfit.photo_uri || '' }} style={styles.image} />
           <View style={styles.imageOverlay}>
             <IconButton
               icon="share-variant"

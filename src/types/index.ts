@@ -67,10 +67,12 @@ export interface WeatherInfo {
 }
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
   photo_uri?: string;
-  created_at?: string;
+  isDefault?: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Category {
@@ -127,9 +129,11 @@ export type ProfileStackParamList = {
 
 // 数据库上下文类型
 export interface DatabaseContextType {
+  isLoading: boolean;
   clothing: ClothingItem[];
   outfits: Outfit[];
   shoppingList: ShoppingItem[];
+  users: User[];
   addClothing: (item: Omit<ClothingItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateClothing: (id: string, updates: Partial<ClothingItem>) => Promise<void>;
   deleteClothing: (id: string) => Promise<void>;
@@ -139,7 +143,9 @@ export interface DatabaseContextType {
   addShoppingItem: (item: Omit<ShoppingItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateShoppingItem: (id: string, updates: Partial<ShoppingItem>) => Promise<void>;
   deleteShoppingItem: (id: string) => Promise<void>;
-  initializeDatabase: () => Promise<void>;
+  addUser: (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 

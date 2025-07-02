@@ -9,6 +9,7 @@ import {
   Dimensions,
   TouchableOpacity
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
   Title,
@@ -26,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { theme } from '../styles/theme';
+import { commonStyles } from '../styles/commonStyles';
 import { useDatabase } from '../services/DatabaseContext';
 import EmptyState from '../components/EmptyState';
 import OutfitCard from '../components/OutfitCard';
@@ -43,35 +45,33 @@ interface OutfitScreenProps {
   navigation: OutfitScreenNavigationProp;
 }
 
-
-
 const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
-  const { outfits: dbOutfits } = useDatabase();
+  const { outfits: allOutfits, users } = useDatabase();
   
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [filteredOutfits, setFilteredOutfits] = useState<Outfit[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all'); // all, favorite, recent
+  const [selectedOccasion, setSelectedOccasion] = useState<string>('全部');
+  const [selectedSeason, setSelectedSeason] = useState<string>('全部');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [dbOutfits])
-  );
+  useEffect(() => {
+    // 设置默认用户
+    if (users.length > 0 && !selectedUser) {
+      const defaultUser = users.find(user => user.isDefault) || users[0];
+      setSelectedUser(defaultUser);
+    }
+  }, [users, selectedUser]);
+
+  useEffect(() => {
+    filterOutfits();
+  }, [allOutfits, searchQuery, selectedOccasion, selectedSeason, selectedUser]);
 
   const loadData = async () => {
     try {
-      // 使用数据库中的outfits和模拟用户数据
-      const usersData: User[] = [
-        { id: 1, name: '我', photo_uri: '', created_at: new Date().toISOString() }
-      ];
-      
-      setOutfits(dbOutfits);
-      setUsers(usersData);
-      filterOutfits(dbOutfits, searchQuery, selectedUser, filterType);
+      setOutfits(allOutfits);
+      filterOutfits();
     } catch (error) {
       console.error('Error loading data:', error);
       Alert.alert('错误', '加载数据失败，请重试');
@@ -84,26 +84,29 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
     setRefreshing(false);
   };
 
-  const filterOutfits = (outfitsData: Outfit[], query: string, user: User | null, type: string) => {
-    let filtered = outfitsData;
+  const filterOutfits = () => {
+    let filtered = allOutfits;
 
-    // 按用户筛选
-    if (user) {
-      filtered = filtered.filter(item => item.user_id === user.id);
-    }
+         // 按用户筛选
+     if (selectedUser) {
+       // 暂时跳过用户筛选，因为outfit表还没有user_id字段
+       // filtered = filtered.filter(item => item.user_id === selectedUser.id);
+     }
 
     // 按类型筛选
-    if (type === 'favorite') {
-      filtered = filtered.filter(item => item.is_favorite);
-    } else if (type === 'recent') {
+    if (selectedOccasion !== '全部') {
+      filtered = filtered.filter(item => item.occasion === selectedOccasion);
+    }
+
+    if (selectedSeason !== '全部') {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       filtered = filtered.filter(item => new Date(item.created_at || item.createdAt) >= oneWeekAgo);
     }
 
     // 按搜索词筛选
-    if (query) {
-      const lowercaseQuery = query.toLowerCase();
+    if (searchQuery) {
+      const lowercaseQuery = searchQuery.toLowerCase();
       filtered = filtered.filter(item =>
         item.name?.toLowerCase().includes(lowercaseQuery) ||
         item.occasion?.toLowerCase().includes(lowercaseQuery) ||
@@ -116,18 +119,18 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    filterOutfits(outfits, query, selectedUser, filterType);
+    filterOutfits();
   };
 
   const handleUserFilter = (user: User) => {
     const newUser = selectedUser?.id === user.id ? null : user;
     setSelectedUser(newUser);
-    filterOutfits(outfits, searchQuery, newUser, filterType);
+    filterOutfits();
   };
 
   const handleTypeFilter = (type: string) => {
-    setFilterType(type);
-    filterOutfits(outfits, searchQuery, selectedUser, type);
+    setSelectedOccasion(type);
+    filterOutfits();
   };
 
   const handleOutfitPress = (outfit: Outfit) => {
@@ -142,43 +145,53 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
     />
   );
 
-
-
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={commonStyles.container}>
       {/* 搜索栏 */}
-      <View style={styles.searchContainer}>
+      <View style={commonStyles.searchContainer}>
         <Searchbar
           placeholder="搜索穿搭..."
           onChangeText={handleSearch}
           value={searchQuery}
-          style={styles.searchbar}
+          style={commonStyles.searchbar}
           iconColor={theme.colors.primary}
         />
       </View>
 
       {/* 筛选选项 */}
-      <View style={styles.filterContainer}>
+      <View style={commonStyles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.filterRow}>
+          <View style={commonStyles.filterRow}>
             <Chip
-              selected={filterType === 'all'}
-              onPress={() => handleTypeFilter('all')}
-              style={[styles.filterChip, filterType === 'all' && styles.selectedChip]}
+              selected={selectedOccasion === '全部'}
+              onPress={() => handleTypeFilter('全部')}
+              style={[
+                commonStyles.filterChip, 
+                selectedOccasion === '全部' && commonStyles.filterChipSelected
+              ]}
+              textStyle={selectedOccasion === '全部' ? commonStyles.filterChipTextSelected : {}}
             >
               全部
             </Chip>
             <Chip
-              selected={filterType === 'favorite'}
-              onPress={() => handleTypeFilter('favorite')}
-              style={[styles.filterChip, filterType === 'favorite' && styles.selectedChip]}
+              selected={selectedOccasion === '收藏'}
+              onPress={() => handleTypeFilter('收藏')}
+              style={[
+                commonStyles.filterChip, 
+                selectedOccasion === '收藏' && commonStyles.filterChipSelected
+              ]}
+              textStyle={selectedOccasion === '收藏' ? commonStyles.filterChipTextSelected : {}}
             >
               收藏
             </Chip>
             <Chip
-              selected={filterType === 'recent'}
-              onPress={() => handleTypeFilter('recent')}
-              style={[styles.filterChip, filterType === 'recent' && styles.selectedChip]}
+              selected={selectedOccasion === '最近'}
+              onPress={() => handleTypeFilter('最近')}
+              style={[
+                commonStyles.filterChip, 
+                selectedOccasion === '最近' && commonStyles.filterChipSelected
+              ]}
+              textStyle={selectedOccasion === '最近' ? commonStyles.filterChipTextSelected : {}}
             >
               最近
             </Chip>
@@ -188,29 +201,30 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
 
       {/* 用户筛选 */}
       {users.length > 1 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.userFilterContainer}
-          contentContainerStyle={styles.userFilterContent}
-        >
-          {users.map((user) => {
-            return (
-              <Chip
-                key={user.id}
-                selected={selectedUser?.id === user.id}
-                onPress={() => handleUserFilter(user)}
-                style={[
-                  styles.userChip,
-                  selectedUser?.id === user.id && styles.selectedUserChip
-                ]}
-                textStyle={selectedUser?.id === user.id ? styles.selectedUserText : {}}
-                              >
+        <View style={commonStyles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={commonStyles.filterRow}
+          >
+            {users.map((user) => {
+              return (
+                <Chip
+                  key={user.id}
+                  selected={selectedUser?.id === user.id}
+                  onPress={() => handleUserFilter(user)}
+                  style={[
+                    commonStyles.filterChip,
+                    selectedUser?.id === user.id && commonStyles.filterChipSelected
+                  ]}
+                  textStyle={selectedUser?.id === user.id ? commonStyles.filterChipTextSelected : {}}
+                >
                   {(user.name && typeof user.name === 'string') ? user.name : '未知用户'}
                 </Chip>
-            );
-          })}
-        </ScrollView>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
 
       {/* 穿搭网格 */}
@@ -218,7 +232,7 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
         <FlatGrid
           itemDimension={width / 2 - theme.spacing.lg}
           data={filteredOutfits}
-          style={styles.grid}
+          style={commonStyles.gridContainer}
           spacing={theme.spacing.sm}
           renderItem={renderOutfitItem}
           refreshControl={
@@ -230,92 +244,27 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
           }
         />
       ) : (
-        <EmptyState
-          icon="body-outline"
-          title="还没有穿搭记录"
-          subtitle="快去推荐页面生成您的第一个穿搭吧"
-        />
+        <View style={commonStyles.emptyState}>
+          <EmptyState
+            icon="body-outline"
+            title="还没有穿搭记录"
+            subtitle="快去推荐页面生成您的第一个穿搭吧"
+          />
+        </View>
       )}
 
       {/* 手动搭配按钮 */}
       <FAB
-        style={styles.fab}
+        style={commonStyles.fab}
         icon="plus"
         onPress={() => Alert.alert('提示', '创建穿搭功能即将推出')}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  
-  searchContainer: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  
-  searchbar: {
-    backgroundColor: theme.colors.surface,
-  },
-  
-  filterContainer: {
-    paddingHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  
-  filterRow: {
-    flexDirection: 'row',
-    paddingRight: theme.spacing.md,
-  },
-  
-  filterChip: {
-    marginRight: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-  },
-  
-  selectedChip: {
-    backgroundColor: theme.colors.primary,
-  },
-  
-  userFilterContainer: {
-    paddingHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  
-  userFilterContent: {
-    paddingRight: theme.spacing.md,
-  },
-  
-  userChip: {
-    marginRight: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-  },
-  
-  selectedUserChip: {
-    backgroundColor: theme.colors.secondary,
-  },
-  
-  selectedUserText: {
-    color: theme.colors.textLight,
-  },
-  
-  grid: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.md,
-  },
-
-  
-  fab: {
-    position: 'absolute',
-    margin: theme.spacing.md,
-    right: 0,
-    bottom: 0,
-    backgroundColor: theme.colors.primary,
-  },
+  // 只保留不在commonStyles中的特殊样式（目前没有）
 });
 
 export default OutfitScreen; 

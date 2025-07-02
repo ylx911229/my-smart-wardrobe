@@ -8,6 +8,7 @@ import {
   Dimensions,
   TouchableOpacity
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Card,
   Title,
@@ -22,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
 import { theme } from '../styles/theme';
+import { commonStyles } from '../styles/commonStyles';
 import { useDatabase } from '../services/DatabaseContext';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, ClothingItem, User } from '../types';
@@ -50,33 +52,33 @@ interface Recommendation {
 }
 
 const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
-  const { clothing, addOutfit } = useDatabase();
+  const { clothing, users, addOutfit } = useDatabase();
   
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [clothes, setClothes] = useState<ClothingItem[]>([]);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [clothes, setClothes] = useState<ClothingItem[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadData();
-    getWeatherInfo();
   }, [clothing]);
+
+  useEffect(() => {
+    // 设置默认用户
+    if (users.length > 0 && !selectedUser) {
+      const defaultUser = users.find(user => user.isDefault) || users[0];
+      setSelectedUser(defaultUser);
+    }
+  }, [users, selectedUser]);
 
   const loadData = async () => {
     try {
-      // 使用模拟用户数据
-      const defaultUsers: User[] = [
-        { id: 1, name: '我', photo_uri: '', created_at: new Date().toISOString() }
-      ];
-      
-      setUsers(defaultUsers);
+      // 加载衣物数据
       setClothes(clothing);
       
-      if (defaultUsers.length > 0) {
-        setSelectedUser(defaultUsers[0]);
-      }
+      // 获取天气信息
+      await getWeatherInfo();
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -257,10 +259,9 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
     try {
       const outfitData = {
         name: `${new Date().toLocaleDateString()}的推荐搭配`,
-        user_id: selectedUser.id,
         clothingIds: recommendation.outfit.map(item => item.id),
         date: new Date().toISOString(),
-        photo_uri: '', // 可以生成拼图或让用户拍照
+        imageUri: '', // 可以生成拼图或让用户拍照
         occasion: '日常',
         weather: weather ? `${weather.temperature}°C ${weather.condition}` : '',
         notes: recommendation.reason,
@@ -278,7 +279,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
 
   const renderClothingItem = (item: ClothingItem) => (
     <View key={item.id} style={styles.clothingItem}>
-      <Image source={{ uri: item.photo_uri || '' }} style={styles.clothingImage} />
+      <Image source={{ uri: item.imageUri || item.photo_uri || '' }} style={styles.clothingImage} />
       <View style={styles.clothingInfo}>
         <Text style={styles.clothingName}>{item.name}</Text>
         <Text style={styles.clothingCategory}>{item.category_name || item.category}</Text>
@@ -289,14 +290,15 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={commonStyles.container}>
+      <ScrollView style={commonStyles.contentContainer}>
       {/* 天气信息 */}
       {weather && (
-        <Card style={styles.weatherCard}>
+        <Card style={commonStyles.card}>
           <Card.Content>
             <View style={styles.weatherContent}>
               <View style={styles.weatherInfo}>
-                <Title style={styles.weatherTitle}>今日天气</Title>
+                <Title style={commonStyles.sectionTitle}>今日天气</Title>
                 <View style={styles.weatherDetails}>
                   <Text style={styles.temperature}>{weather.temperature}°C</Text>
                   <Text style={styles.condition}>{weather.condition}</Text>
@@ -317,9 +319,9 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
 
       {/* 用户选择 */}
       {users.length > 0 && (
-        <Card style={styles.userCard}>
+        <Card style={commonStyles.card}>
           <Card.Content>
-            <Title style={styles.sectionTitle}>选择主人</Title>
+            <Title style={commonStyles.sectionTitle}>选择主人</Title>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {users.map((user) => (
                 <TouchableOpacity
@@ -333,9 +335,9 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
                   <Avatar.Image
                     size={60}
                     source={user.photo_uri ? { uri: user.photo_uri } : { uri: 'https://via.placeholder.com/60' }}
-                    style={styles.userAvatar}
+                    style={commonStyles.userAvatar}
                   />
-                  <Text style={styles.userName}>{user.name}</Text>
+                  <Text style={commonStyles.userName}>{user.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -344,14 +346,14 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
       )}
 
       {/* 推荐按钮 */}
-      <Card style={styles.actionCard}>
+      <Card style={commonStyles.card}>
         <Card.Content>
           <Button
             mode="contained"
             onPress={generateRecommendation}
             loading={loading}
             disabled={loading || !selectedUser}
-            style={styles.recommendButton}
+            style={commonStyles.primaryButton}
             icon="star"
           >
             一键推荐今日穿搭
@@ -361,10 +363,10 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
 
       {/* 推荐结果 */}
       {recommendation && (
-        <Card style={styles.recommendationCard}>
+        <Card style={commonStyles.cardLarge}>
           <Card.Content>
             <View style={styles.recommendationHeader}>
-              <Title style={styles.recommendationTitle}>为您推荐</Title>
+              <Title style={commonStyles.sectionTitle}>为您推荐</Title>
               <View style={styles.recommendationActions}>
                 <IconButton
                   icon="refresh"
@@ -387,18 +389,18 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
               {recommendation.outfit.map(renderClothingItem)}
             </View>
 
-            <View style={styles.recommendationButtons}>
+            <View style={commonStyles.buttonRow}>
               <Button
                 mode="outlined"
                 onPress={generateRecommendation}
-                style={styles.actionButton}
+                style={[commonStyles.secondaryButton, commonStyles.buttonHalf]}
               >
                 重新推荐
               </Button>
               <Button
                 mode="contained"
                 onPress={handleSaveOutfit}
-                style={styles.actionButton}
+                style={[commonStyles.primaryButton, commonStyles.buttonHalf]}
               >
                 保存搭配
               </Button>
@@ -409,41 +411,33 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
 
       {/* 空状态 */}
       {clothes.length === 0 && (
-        <Card style={styles.emptyCard}>
-          <Card.Content>
-            <View style={styles.emptyState}>
-              <Ionicons name="shirt-outline" size={64} color={theme.colors.textSecondary} />
-              <Title style={styles.emptyTitle}>还没有衣物</Title>
-              <Paragraph style={styles.emptySubtitle}>
-                添加一些衣物后就可以获得穿搭推荐了
-              </Paragraph>
-              <Button
-                mode="contained"
-                onPress={() => navigation.navigate('Wardrobe')}
-                style={styles.emptyButton}
-              >
-                去添加衣物
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
+        <View style={commonStyles.emptyState}>
+          <Ionicons 
+            name="shirt-outline" 
+            size={64} 
+            color={theme.colors.textSecondary} 
+            style={commonStyles.emptyStateIcon}
+          />
+          <Text style={commonStyles.emptyStateTitle}>还没有衣物</Text>
+          <Text style={commonStyles.emptyStateSubtitle}>
+            添加一些衣物后就可以获得穿搭推荐了
+          </Text>
+          <Button
+            mode="contained"
+            onPress={() => navigation.navigate('Wardrobe')}
+            style={commonStyles.emptyStateButton}
+          >
+            去添加衣物
+          </Button>
+        </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.md,
-  },
-
-  weatherCard: {
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-
+  // 天气卡片特有样式
   weatherContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -452,11 +446,6 @@ const styles = StyleSheet.create({
 
   weatherInfo: {
     flex: 1,
-  },
-
-  weatherTitle: {
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.sm,
   },
 
   weatherDetails: {
@@ -481,16 +470,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
 
-  userCard: {
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-
-  sectionTitle: {
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.md,
-  },
-
+  // 用户选择特有样式
   userItem: {
     alignItems: 'center',
     marginRight: theme.spacing.md,
@@ -502,38 +482,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.cardBackground,
   },
 
-  userAvatar: {
-    marginBottom: theme.spacing.sm,
-  },
-
-  userName: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-
-  actionCard: {
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-
-  recommendButton: {
-    backgroundColor: theme.colors.primary,
-  },
-
-  recommendationCard: {
-    marginBottom: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-  },
-
+  // 推荐结果特有样式
   recommendationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
-  },
-
-  recommendationTitle: {
-    color: theme.colors.primary,
   },
 
   recommendationActions: {
@@ -550,6 +504,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
 
+  // 衣物项样式
   clothingItem: {
     flexDirection: 'row',
     padding: theme.spacing.sm,
@@ -585,40 +540,6 @@ const styles = StyleSheet.create({
   clothingDetail: {
     fontSize: 12,
     color: theme.colors.textSecondary,
-  },
-
-  recommendationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-
-  actionButton: {
-    flex: 0.45,
-  },
-
-  emptyCard: {
-    backgroundColor: theme.colors.surface,
-  },
-
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xl,
-  },
-
-  emptyTitle: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    color: theme.colors.textSecondary,
-  },
-
-  emptySubtitle: {
-    textAlign: 'center',
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.lg,
-  },
-
-  emptyButton: {
-    backgroundColor: theme.colors.primary,
   },
 });
 

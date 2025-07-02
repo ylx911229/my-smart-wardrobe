@@ -6,12 +6,13 @@ import {
   Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar, Chip, Menu, Button, FAB } from 'react-native-paper';
+import { Searchbar, Chip, Menu, Button, FAB, Title } from 'react-native-paper';
 
 import { useDatabase } from '../services/DatabaseContext';
 import ClothingCard from '../components/ClothingCard';
 import EmptyState from '../components/EmptyState';
 import { theme } from '../styles/theme';
+import { commonStyles } from '../styles/commonStyles';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { WardrobeStackParamList, ClothingItem } from '../types';
 
@@ -107,19 +108,20 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.container}>
       {/* 搜索栏 */}
-      <View style={styles.searchContainer}>
+      <View style={commonStyles.searchContainer}>
         <Searchbar
           placeholder="搜索衣物..."
           onChangeText={handleSearch}
           value={searchQuery}
-          style={styles.searchbar}
+          style={commonStyles.searchbar}
+          iconColor={theme.colors.primary}
         />
       </View>
 
       {/* 筛选选项 */}
-      <View style={styles.filterContainer}>
+      <View style={commonStyles.filterContainer}>
         {/* 分类筛选 */}
         <FlatList
           horizontal
@@ -131,15 +133,15 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
               selected={selectedCategory?.id === category.id}
               onPress={() => handleCategoryFilter(category)}
               style={[
-                styles.categoryChip,
-                selectedCategory?.id === category.id && styles.selectedCategoryChip
+                commonStyles.filterChip,
+                selectedCategory?.id === category.id && commonStyles.filterChipSelected
               ]}
-              textStyle={selectedCategory?.id === category.id ? styles.selectedCategoryText : {}}
+              textStyle={selectedCategory?.id === category.id ? commonStyles.filterChipTextSelected : {}}
             >
               {category.name}
             </Chip>
           )}
-          contentContainerStyle={styles.categoryList}
+          contentContainerStyle={commonStyles.filterRow}
           showsHorizontalScrollIndicator={false}
         />
 
@@ -151,7 +153,7 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
             <Button
               mode="outlined"
               onPress={() => setSortMenuVisible(true)}
-              style={styles.sortButton}
+              style={[commonStyles.secondaryButton, styles.sortButton]}
             >
               排序
             </Button>
@@ -174,20 +176,22 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
           renderItem={renderClothingItem}
           keyExtractor={item => item.id}
           numColumns={2}
-          contentContainerStyle={styles.clothesList}
+          contentContainerStyle={commonStyles.gridContainer}
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        <EmptyState
-          icon="shirt-outline"
-          title="暂无衣物"
-          subtitle="点击右下角按钮添加你的第一件衣物"
-        />
+        <View style={commonStyles.emptyState}>
+          <EmptyState
+            icon="shirt-outline"
+            title="暂无衣物"
+            subtitle="点击右下角按钮添加你的第一件衣物"
+          />
+        </View>
       )}
 
       {/* 添加按钮 */}
       <FAB
-        style={styles.fab}
+        style={commonStyles.fab}
         icon="plus"
         onPress={() => navigation.navigate('AddClothing', {})}
       />
@@ -196,63 +200,17 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-
-  searchContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-  },
-
-  searchbar: {
-    backgroundColor: theme.colors.surface,
-  },
-
-  filterContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-  },
-
-  categoryList: {
-    paddingVertical: theme.spacing.sm,
-  },
-
-  categoryChip: {
-    marginRight: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-  },
-
-  selectedCategoryChip: {
-    backgroundColor: theme.colors.primary,
-  },
-
-  selectedCategoryText: {
-    color: theme.colors.surface,
-  },
-
+  // 排序按钮的特殊位置
   sortButton: {
     alignSelf: 'flex-end',
     marginTop: theme.spacing.sm,
   },
-
-  clothesList: {
-    padding: theme.spacing.lg,
-  },
-
+  
+  // 衣物卡片的特殊样式
   clothingCard: {
     flex: 1,
     marginHorizontal: theme.spacing.xs,
     marginBottom: theme.spacing.md,
-  },
-
-  fab: {
-    position: 'absolute',
-    margin: theme.spacing.lg,
-    right: 0,
-    bottom: 0,
-    backgroundColor: theme.colors.primary,
   },
 });
 
