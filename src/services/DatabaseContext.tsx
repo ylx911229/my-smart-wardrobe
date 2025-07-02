@@ -99,16 +99,16 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
         console.log('Recreating users table...');
         await database.execAsync(`DROP TABLE IF EXISTS users;`);
         
-        await database.execAsync(`
+      await database.execAsync(`
           CREATE TABLE users (
             id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            photo_uri TEXT,
+          name TEXT NOT NULL,
+          photo_uri TEXT,
             isDefault INTEGER DEFAULT 0,
             createdAt TEXT NOT NULL,
             updatedAt TEXT NOT NULL
-          );
-        `);
+        );
+      `);
         console.log('Users table recreated successfully');
       } else {
         console.log('Users table already exists with correct structure');
@@ -451,10 +451,10 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
         [...updateValues, now, id] as (string | number | null)[]
       );
       await refreshData();
-    } catch (error) {
+      } catch (error) {
       console.error('Error updating clothing:', error);
-      throw error;
-    }
+        throw error;
+      }
   };
 
   const deleteClothing = async (id: string): Promise<void> => {
@@ -531,10 +531,10 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
         [...updateValues, now, id] as (string | number | null)[]
       );
       await refreshData();
-    } catch (error) {
+      } catch (error) {
       console.error('Error updating outfit:', error);
-      throw error;
-    }
+        throw error;
+      }
   };
 
   const deleteOutfit = async (id: string): Promise<void> => {
@@ -580,10 +580,10 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
         ]
       );
       await refreshData();
-    } catch (error) {
+      } catch (error) {
       console.error('Error adding shopping item:', error);
-      throw error;
-    }
+        throw error;
+      }
   };
 
   const updateShoppingItem = async (id: string, updates: Partial<ShoppingItem>): Promise<void> => {
@@ -604,10 +604,10 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
         [...updateValues, now, id] as (string | number | null)[]
       );
       await refreshData();
-    } catch (error) {
+      } catch (error) {
       console.error('Error updating shopping item:', error);
-      throw error;
-    }
+        throw error;
+      }
   };
 
   const deleteShoppingItem = async (id: string): Promise<void> => {
@@ -624,9 +624,9 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
 
   // 用户相关操作
   const addUser = async (user: Omit<User, 'id' | 'createdAt' | 'updatedAt'>): Promise<void> => {
-    if (!db) {
-      throw new Error('Database not initialized');
-    }
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
 
     try {
       const id = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -634,27 +634,27 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
       
       console.log('Adding user:', { id, name: user.name, photo_uri: user.photo_uri });
       
-      await db.runAsync(
+          await db.runAsync(
         `INSERT INTO users (id, name, photo_uri, isDefault, createdAt, updatedAt) 
          VALUES (?, ?, ?, ?, ?, ?)`,
         [id, user.name, user.photo_uri || '', 0, currentTime, currentTime]
-      );
+          );
 
       console.log('User inserted successfully, refreshing data...');
-      
+        
       // 刷新用户数据
       await refreshData();
       console.log('User added successfully');
-    } catch (error) {
+      } catch (error) {
       console.error('Error adding user:', error);
-      throw error;
-    }
+        throw error;
+      }
   };
 
   const updateUser = async (id: string, updates: Partial<User>): Promise<void> => {
-    if (!db) {
-      throw new Error('Database not initialized');
-    }
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
 
     try {
       const currentTime = new Date().toISOString();
@@ -681,16 +681,16 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
 
       await refreshData();
       console.log('User updated successfully');
-    } catch (error) {
+      } catch (error) {
       console.error('Error updating user:', error);
-      throw error;
-    }
+        throw error;
+      }
   };
 
   const deleteUser = async (id: string): Promise<void> => {
-    if (!db) {
-      throw new Error('Database not initialized');
-    }
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
 
     try {
       // 不允许删除默认用户

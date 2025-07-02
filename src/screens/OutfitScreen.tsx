@@ -95,7 +95,7 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
     // 按类型筛选
     if (selectedFilter === '收藏') {
       filtered = filtered.filter(item => item.is_favorite === true);
-    } else if (selectedFilter === '最近') {
+    } else if (selectedFilter === '最近7天') {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       filtered = filtered.filter(item => {
@@ -194,14 +194,14 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
               收藏
             </Chip>
             <Chip
-              onPress={() => handleTypeFilter('最近')}
+              onPress={() => handleTypeFilter('最近7天')}
               style={[
                 commonStyles.filterChip, 
-                selectedFilter === '最近' && commonStyles.filterChipSelected
+                selectedFilter === '最近7天' && commonStyles.filterChipSelected
               ]}
-              textStyle={selectedFilter === '最近' ? commonStyles.filterChipTextSelected : {}}
+              textStyle={selectedFilter === '最近7天' ? commonStyles.filterChipTextSelected : {}}
             >
-              最近
+              最近7天
             </Chip>
           </View>
         </ScrollView>

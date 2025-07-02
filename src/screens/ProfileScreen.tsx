@@ -243,7 +243,7 @@ const ProfileScreen = ({ navigation }: ProfileScreenProps) => {
           {stats.categories.length > 0 && (
             <View style={styles.categoriesSection}>
               <Text style={styles.categoriesTitle}>分类统计</Text>
-              {stats.categories.slice(0, 3).map((category) => (
+              {stats.categories.map((category) => (
                 <View key={category.name} style={styles.categoryItem}>
                   <Text style={styles.categoryName}>{category.name}</Text>
                   <Text style={styles.categoryCount}>{category.count} 件</Text>

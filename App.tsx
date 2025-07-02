@@ -20,6 +20,7 @@ import StatisticsScreen from './src/screens/StatisticsScreen';
 
 import { theme } from './src/styles/theme';
 import { DatabaseProvider } from './src/services/DatabaseContext';
+import { WeatherProvider } from './src/services/WeatherContext';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -185,10 +186,12 @@ export default function App(): React.JSX.Element {
   return (
     <PaperProvider theme={theme}>
       <DatabaseProvider>
-        <NavigationContainer>
-          <StatusBar style="auto" />
-          <MainTabs />
-        </NavigationContainer>
+        <WeatherProvider>
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <MainTabs />
+          </NavigationContainer>
+        </WeatherProvider>
       </DatabaseProvider>
     </PaperProvider>
   );

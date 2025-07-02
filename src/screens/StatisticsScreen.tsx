@@ -63,24 +63,33 @@ const StatisticsScreen = ({ navigation }: StatisticsScreenProps) => {
 
   const loadStatistics = () => {
     try {
-      // 模拟分类数据
-      const categories = [
-        { id: 1, name: '上衣', color: '#FF6B6B' },
-        { id: 2, name: '下装', color: '#4ECDC4' },
-        { id: 3, name: '外套', color: '#45B7D1' },
-        { id: 4, name: '鞋子', color: '#96CEB4' },
-        { id: 5, name: '配饰', color: '#FECA57' },
-      ];
-
-      // 计算分类统计
-      const categoryStats = categories.map((category) => {
-        const count = clothing.filter((item: ClothingItem) => item.category === category.name).length;
-        return {
-          ...category,
-          count,
-          percentage: clothing.length > 0 ? (count / clothing.length * 100).toFixed(1) : '0',
-        };
+      // 计算实际分类统计（与ProfileScreen保持一致）
+      const categoryCount: { [key: string]: number } = {};
+      
+      clothing.forEach(item => {
+        const category = item.category_name || item.category || '其他';
+        categoryCount[category] = (categoryCount[category] || 0) + 1;
       });
+
+      // 预定义分类颜色（用于图表显示）
+      const categoryColors: { [key: string]: string } = {
+        '上衣': '#FF6B6B',
+        '下装': '#4ECDC4', 
+        '外套': '#45B7D1',
+        '鞋子': '#96CEB4',
+        '配饰': '#FECA57',
+        '内衣': '#A8E6CF',
+        '其他': '#DDA0DD'
+      };
+
+      // 根据实际数据生成分类统计
+      const categoryStats = Object.entries(categoryCount).map(([name, count], index) => ({
+        id: index + 1,
+        name,
+        color: categoryColors[name] || '#95A5A6', // 默认颜色
+        count,
+        percentage: clothing.length > 0 ? (count / clothing.length * 100).toFixed(1) : '0',
+      }));
 
       // 计算活跃度统计
       const activeClothes = clothing.filter((item: ClothingItem) => (item.activity_score || 0) > 0).length;

@@ -4,6 +4,7 @@ import {
   StyleSheet,
   FlatList,
   Text,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar, Chip, Menu, Button, FAB, Title } from 'react-native-paper';
@@ -31,7 +32,7 @@ interface Category {
 }
 
 const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
-  const { clothing } = useDatabase();
+  const { clothing, deleteClothing } = useDatabase();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [filteredClothes, setFilteredClothes] = useState<ClothingItem[]>([]);
@@ -119,6 +120,31 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
     navigation.navigate('ClothingDetail', { clothing: item });
   };
 
+  const handleClothingLongPress = (item: ClothingItem) => {
+    Alert.alert(
+      '删除衣物',
+      `确定要删除"${item.name}"吗？此操作无法撤销。`,
+      [
+        { text: '取消', style: 'cancel' },
+        { 
+          text: '删除', 
+          style: 'destructive', 
+          onPress: () => confirmDeleteClothing(item) 
+        }
+      ]
+    );
+  };
+
+  const confirmDeleteClothing = async (item: ClothingItem) => {
+    try {
+      await deleteClothing(item.id);
+      Alert.alert('删除成功', `"${item.name}"已从衣柜中移除`);
+    } catch (error) {
+      console.error('Error deleting clothing:', error);
+      Alert.alert('错误', '删除失败，请重试');
+    }
+  };
+
   const getCurrentSortLabel = () => {
     const currentOption = sortOptions.find(option => option.value === currentSort);
     return currentOption?.label || '排序';
@@ -128,6 +154,7 @@ const WardrobeScreen = ({ navigation }: WardrobeScreenProps) => {
     <ClothingCard
       item={item}
       onPress={handleClothingPress}
+      onLongPress={handleClothingLongPress}
       style={styles.gridItem}
     />
   );

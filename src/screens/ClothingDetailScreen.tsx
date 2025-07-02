@@ -21,6 +21,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
+import { useDatabase } from '../services/DatabaseContext';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { WardrobeStackParamList, ClothingItem } from '../types';
@@ -42,7 +43,9 @@ interface ClothingDetailScreenProps {
 
 const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) => {
   const { clothing } = route.params;
+  const { deleteClothing } = useDatabase();
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleShare = async () => {
     try {
@@ -71,9 +74,21 @@ const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) 
     );
   };
 
-  const confirmDelete = () => {
-    // 实现删除逻辑
-    Alert.alert('提示', '删除功能暂未实现');
+  const confirmDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteClothing(clothing.id);
+      
+      Alert.alert(
+        '删除成功',
+        '衣物已从衣柜中移除',
+        [{ text: '确定', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      console.error('Error deleting clothing:', error);
+      Alert.alert('错误', '删除失败，请重试');
+      setIsDeleting(false);
+    }
   };
 
   const getActivityColor = (score: number) => {
@@ -208,6 +223,8 @@ const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) 
               mode="outlined"
               icon="delete"
               onPress={handleDelete}
+              disabled={isDeleting}
+              loading={isDeleting}
               style={[styles.actionButton, styles.deleteButton]}
               textColor={theme.colors.error}
             >

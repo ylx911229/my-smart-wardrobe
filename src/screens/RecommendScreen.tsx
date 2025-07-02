@@ -20,13 +20,14 @@ import {
   IconButton
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 
 import { theme } from '../styles/theme';
 import { commonStyles } from '../styles/commonStyles';
 import { useDatabase } from '../services/DatabaseContext';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, ClothingItem, User } from '../types';
+import { WeatherInfo } from '../services/WeatherService';
+import { useWeather } from '../services/WeatherContext';
 
 const { width } = Dimensions.get('window');
 
@@ -39,12 +40,6 @@ interface RecommendScreenProps {
   navigation: RecommendScreenNavigationProp;
 }
 
-interface WeatherInfo {
-  temperature: number;
-  condition: string;
-  description: string;
-}
-
 interface Recommendation {
   outfit: ClothingItem[];
   reason: string;
@@ -52,59 +47,34 @@ interface Recommendation {
 }
 
 const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
-  const { clothing, users, addOutfit } = useDatabase();
+  const { clothing, users, addOutfit, refreshData, isLoading } = useDatabase();
+  const { weather, isLoading: isWeatherLoading, refreshWeather } = useWeather();
   
-  const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [clothes, setClothes] = useState<ClothingItem[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   useEffect(() => {
     loadData();
-  }, [clothing]);
+  }, []);
 
   useEffect(() => {
+    // 当数据库数据更新时，同步本地状态
+    setClothes(clothing);
+    
     // 设置默认用户
     if (users.length > 0 && !selectedUser) {
-      const defaultUser = users.find(user => user.isDefault) || users[0];
+      const defaultUser: User = users.find((user: User) => user.isDefault) || users[0];
       setSelectedUser(defaultUser);
     }
-  }, [users, selectedUser]);
+  }, [clothing, users, selectedUser]);
 
   const loadData = async () => {
     try {
-      // 加载衣物数据
-      setClothes(clothing);
-      
-      // 获取天气信息
-      await getWeatherInfo();
+      await refreshData();
     } catch (error) {
       console.error('Error loading data:', error);
-    }
-  };
-
-  const getWeatherInfo = async () => {
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setWeather({ temperature: 22, condition: '晴天', description: '位置权限未授予，显示默认天气' });
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({});
-      
-      // 模拟天气数据（实际应用应该调用天气API）
-      const mockWeather = {
-        temperature: Math.floor(Math.random() * 30) + 10,
-        condition: ['晴天', '多云', '阴天', '小雨'][Math.floor(Math.random() * 4)],
-        description: '今日天气适宜出行'
-      };
-      
-      setWeather(mockWeather);
-    } catch (error) {
-      console.error('Error getting weather:', error);
-      setWeather({ temperature: 22, condition: '晴天', description: '获取天气信息失败' });
     }
   };
 
@@ -294,7 +264,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
   return (
     <SafeAreaView style={commonStyles.container}>
       <ScrollView style={commonStyles.contentContainer}>
-      {/* 天气信息 */}
+      {/* 今日天气 */}
       {weather && (
         <Card style={commonStyles.card}>
           <Card.Content>
@@ -305,9 +275,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
                   <Text style={styles.temperature}>{weather.temperature}°C</Text>
                   <Text style={styles.condition}>{weather.condition}</Text>
                 </View>
-                <Paragraph style={styles.weatherDescription}>
-                  {weather.description}
-                </Paragraph>
+                <Text style={styles.weatherDescription}>{weather.description}</Text>
               </View>
               <Ionicons 
                 name="partly-sunny" 
@@ -329,7 +297,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.userScrollContainer}
             >
-              {users.map((user) => (
+              {users.map((user: User) => (
                 <TouchableOpacity
                   key={user.id}
                   onPress={() => setSelectedUser(user)}
@@ -343,11 +311,19 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
                     styles.avatarContainer,
                     selectedUser?.id === user.id && styles.avatarContainerSelected
                   ]}>
-                    <Avatar.Image
-                      size={50}
-                      source={user.photo_uri ? { uri: user.photo_uri } : { uri: 'https://via.placeholder.com/50' }}
-                      style={styles.avatarImage}
-                    />
+                    {user.photo_uri ? (
+                      <Avatar.Image
+                        size={50}
+                        source={{ uri: user.photo_uri }}
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <Avatar.Icon
+                        size={50}
+                        icon="account"
+                        style={styles.avatarImage}
+                      />
+                    )}
                   </View>
                   <Text style={[
                     styles.userCardName,

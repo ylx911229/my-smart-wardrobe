@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { ClothingCardProps } from '../types';
 
-const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
+const ClothingCard = ({ item, onPress, onLongPress, style }: ClothingCardProps) => {
   const getActivityColor = (score: number) => {
     if (score > 20) return theme.colors.success;
     if (score > 10) return theme.colors.warning;
@@ -14,7 +14,11 @@ const ClothingCard = ({ item, onPress, style }: ClothingCardProps) => {
   };
 
   return (
-    <TouchableOpacity onPress={() => onPress(item)} style={[styles.container, style]}>
+    <TouchableOpacity 
+      onPress={() => onPress(item)}
+      onLongPress={onLongPress ? () => onLongPress(item) : undefined}
+      style={[styles.container, style]}
+    >
       <Card style={[styles.card, { flex: 0 }]} elevation={0}>
         <View style={styles.imageContainer}>
           {(() => {
