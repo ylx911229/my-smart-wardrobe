@@ -542,11 +542,30 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
     
     try {
       await db.runAsync('DELETE FROM outfits WHERE id = ?', [id]);
+      console.log(`Outfit ${id} deleted successfully`);
       await refreshData();
     } catch (error) {
-      console.error('Error deleting outfit:', error);
+      console.error('Delete outfit error:', error);
       throw error;
     }
+  };
+
+  const getOutfitsByClothing = (clothingId: string): Outfit[] => {
+    return outfits.filter(outfit => {
+      try {
+        // clothingIds可能是JSON字符串或数组
+        let clothingIds: string[] = [];
+        if (typeof outfit.clothingIds === 'string') {
+          clothingIds = JSON.parse(outfit.clothingIds);
+        } else if (Array.isArray(outfit.clothingIds)) {
+          clothingIds = outfit.clothingIds;
+        }
+        return clothingIds.includes(clothingId);
+      } catch (error) {
+        console.error('Error parsing clothingIds for outfit:', outfit.id, error);
+        return false;
+      }
+    });
   };
 
   // 购物清单操作
@@ -727,6 +746,7 @@ export const DatabaseProvider: React.FC<DatabaseContextProps> = ({ children }) =
     addUser,
     updateUser,
     deleteUser,
+    getOutfitsByClothing,
   };
 
   return (

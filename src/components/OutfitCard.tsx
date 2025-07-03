@@ -9,12 +9,13 @@ import type { Outfit, User } from '../types';
 interface OutfitCardProps {
   item: Outfit;
   onPress: (item: Outfit) => void;
+  onLongPress?: (item: Outfit) => void;
   onToggleFavorite?: (item: Outfit) => void;
   style?: any;
   users?: User[];
 }
 
-const OutfitCard = ({ item, onPress, onToggleFavorite, style, users = [] }: OutfitCardProps) => {
+const OutfitCard = ({ item, onPress, onLongPress, onToggleFavorite, style, users = [] }: OutfitCardProps) => {
   const renderDate = () => {
     try {
       if (item?.created_at && typeof item.created_at === 'string') {
@@ -37,18 +38,17 @@ const OutfitCard = ({ item, onPress, onToggleFavorite, style, users = [] }: Outf
   };
 
   return (
-    <TouchableOpacity onPress={() => onPress(item)} style={[styles.cardContainer, style]}>
+    <TouchableOpacity 
+      onPress={() => onPress(item)}
+      onLongPress={onLongPress ? () => onLongPress(item) : undefined}
+      style={[styles.cardContainer, style]}
+    >
       <Card style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
+          <View style={styles.nameHeartRow}>
             <Title style={styles.outfitName} numberOfLines={1}>
               {item?.name && typeof item.name === 'string' ? item.name : '未命名搭配'}
             </Title>
-            <Text style={styles.outfitDate}>
-              {renderDate()}
-            </Text>
-          </View>
-          <View style={styles.cardHeaderRight}>
             {onToggleFavorite && (
               <TouchableOpacity onPress={() => onToggleFavorite(item)}>
                 <Ionicons 
@@ -58,7 +58,13 @@ const OutfitCard = ({ item, onPress, onToggleFavorite, style, users = [] }: Outf
                 />
               </TouchableOpacity>
             )}
+          </View>
+          
+          <View style={styles.userDateRow}>
             <Text style={styles.userName}>{getUserName()}</Text>
+            <Text style={styles.outfitDate}>
+              {renderDate()}
+            </Text>
           </View>
         </View>
 
@@ -105,25 +111,29 @@ const styles = StyleSheet.create({
   },
   
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
     padding: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.divider,
   },
   
-  cardHeaderLeft: {
-    flex: 1,
-  },
-  
-  cardHeaderRight: {
-    alignItems: 'flex-end',
+  nameHeartRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.xs,
   },
   
   outfitName: {
     fontSize: 14,
-    marginBottom: theme.spacing.xs,
+    flex: 1,
+    marginRight: theme.spacing.sm,
+  },
+  
+  userDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   
   outfitDate: {
@@ -134,7 +144,6 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 12,
     color: theme.colors.textSecondary,
-    marginTop: theme.spacing.xs,
   },
   
   outfitImage: {

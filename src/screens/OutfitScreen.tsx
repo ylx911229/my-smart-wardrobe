@@ -47,7 +47,7 @@ interface OutfitScreenProps {
 }
 
 const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
-  const { outfits: allOutfits, users, updateOutfit } = useDatabase();
+  const { outfits: allOutfits, users, updateOutfit, deleteOutfit } = useDatabase();
   
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [filteredOutfits, setFilteredOutfits] = useState<Outfit[]>([]);
@@ -138,8 +138,8 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
   };
 
   const handleOutfitPress = (outfit: Outfit) => {
-    // TODO: 实现详情页导航
-    Alert.alert('提示', `查看搭配: ${outfit.name}`);
+    // 导航到穿搭详情页面
+    navigation.navigate('OutfitDetail' as any, { outfit });
   };
 
   const handleToggleFavorite = async (outfit: Outfit) => {
@@ -151,6 +151,31 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
     } catch (error) {
       console.error('Error toggling favorite:', error);
       Alert.alert('错误', '更新收藏状态失败');
+    }
+  };
+
+  const handleOutfitLongPress = (outfit: Outfit) => {
+    Alert.alert(
+      '删除穿搭',
+      `确定要删除"${outfit.name}"吗？此操作无法撤销。`,
+      [
+        { text: '取消', style: 'cancel' },
+        { 
+          text: '删除', 
+          style: 'destructive', 
+          onPress: () => confirmDeleteOutfit(outfit) 
+        }
+      ]
+    );
+  };
+
+  const confirmDeleteOutfit = async (outfit: Outfit) => {
+    try {
+      await deleteOutfit(outfit.id);
+      Alert.alert('删除成功', `"${outfit.name}"已从穿搭记录中移除`);
+    } catch (error) {
+      console.error('Error deleting outfit:', error);
+      Alert.alert('错误', '删除失败，请重试');
     }
   };
 
@@ -252,6 +277,7 @@ const OutfitScreen = ({ navigation }: OutfitScreenProps) => {
             <OutfitCard
               item={item}
               onPress={() => handleOutfitPress(item)}
+              onLongPress={handleOutfitLongPress}
               onToggleFavorite={handleToggleFavorite}
               style={styles.outfitCardStyle}
               users={users}

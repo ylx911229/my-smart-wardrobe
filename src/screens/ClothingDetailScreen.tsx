@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,8 @@ import {
   Image,
   Alert,
   Share,
-  Linking
+  Linking,
+  FlatList
 } from 'react-native';
 import {
   Card,
@@ -22,9 +23,10 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../styles/theme';
 import { useDatabase } from '../services/DatabaseContext';
+import OutfitCard from '../components/OutfitCard';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
-import type { WardrobeStackParamList, ClothingItem } from '../types';
+import type { WardrobeStackParamList, ClothingItem, Outfit } from '../types';
 
 type ClothingDetailScreenNavigationProp = StackNavigationProp<
   WardrobeStackParamList,
@@ -43,9 +45,16 @@ interface ClothingDetailScreenProps {
 
 const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) => {
   const { clothing } = route.params;
-  const { deleteClothing } = useDatabase();
+  const { deleteClothing, getOutfitsByClothing, users, updateOutfit, outfits } = useDatabase();
   const [isFavorite, setIsFavorite] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [relatedOutfits, setRelatedOutfits] = useState<Outfit[]>([]);
+
+  useEffect(() => {
+    // 获取包含当前衣物的穿搭
+    const relatedOutfitsList = getOutfitsByClothing(clothing.id);
+    setRelatedOutfits(relatedOutfitsList);
+  }, [clothing.id, getOutfitsByClothing, outfits]);
 
   const handleShare = async () => {
     try {
@@ -110,6 +119,43 @@ const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) 
       </View>
     );
   };
+
+  const handleOutfitPress = (outfit: Outfit) => {
+    // 导航到穿搭详情页面，使用通用导航
+    (navigation as any).navigate('Outfit', {
+      screen: 'OutfitDetail',
+      params: { outfit }
+    });
+  };
+
+  const handleToggleFavorite = async (outfit: Outfit) => {
+    try {
+      await updateOutfit(outfit.id, {
+        is_favorite: !outfit.is_favorite
+      });
+      // 更新本地状态
+      setRelatedOutfits(prev => 
+        prev.map(o => 
+          o.id === outfit.id 
+            ? { ...o, is_favorite: !o.is_favorite }
+            : o
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      Alert.alert('错误', '更新收藏状态失败');
+    }
+  };
+
+  const renderOutfitItem = ({ item }: { item: Outfit }) => (
+    <OutfitCard
+      item={item}
+      onPress={handleOutfitPress}
+      onToggleFavorite={handleToggleFavorite}
+      style={styles.outfitCardStyle}
+      users={users}
+    />
+  );
 
   return (
     <ScrollView style={styles.container}>
@@ -238,9 +284,29 @@ const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) 
       <Card style={styles.outfitsCard}>
         <Card.Content>
           <Title style={styles.sectionTitle}>相关穿搭</Title>
-          <Paragraph style={styles.comingSoon}>
-            此功能即将推出，敬请期待
-          </Paragraph>
+          {relatedOutfits.length > 0 ? (
+            <FlatList
+              data={relatedOutfits}
+              renderItem={renderOutfitItem}
+              keyExtractor={(item) => item.id}
+              numColumns={2}
+              columnWrapperStyle={styles.outfitRow}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={false}
+              style={styles.outfitList}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons 
+                name="shirt-outline" 
+                size={32} 
+                color={theme.colors.textSecondary} 
+              />
+              <Text style={styles.emptyStateText}>
+                这件衣物还没有在任何穿搭中使用
+              </Text>
+            </View>
+          )}
         </Card.Content>
       </Card>
     </ScrollView>
@@ -422,9 +488,30 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
 
-  comingSoon: {
-    textAlign: 'center',
+  outfitCardStyle: {
+    width: '48%',
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+
+  outfitRow: {
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.xs,
+  },
+
+  outfitList: {
+    paddingTop: theme.spacing.sm,
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+  },
+
+  emptyStateText: {
+    marginTop: theme.spacing.md,
     color: theme.colors.textSecondary,
+    textAlign: 'center',
     fontStyle: 'italic',
   },
 });

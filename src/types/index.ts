@@ -140,6 +140,7 @@ export interface DatabaseContextType {
   addOutfit: (outfit: Omit<Outfit, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateOutfit: (id: string, updates: Partial<Outfit>) => Promise<void>;
   deleteOutfit: (id: string) => Promise<void>;
+  getOutfitsByClothing: (clothingId: string) => Outfit[];
   addShoppingItem: (item: Omit<ShoppingItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateShoppingItem: (id: string, updates: Partial<ShoppingItem>) => Promise<void>;
   deleteShoppingItem: (id: string) => Promise<void>;

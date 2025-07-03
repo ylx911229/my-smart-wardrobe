@@ -41,6 +41,7 @@ interface RecommendScreenProps {
 }
 
 interface Recommendation {
+  name: string;
   outfit: ClothingItem[];
   reason: string;
   weather: WeatherInfo | null;
@@ -50,36 +51,38 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
   const { clothing, users, addOutfit, refreshData, isLoading } = useDatabase();
   const { weather, isLoading: isWeatherLoading, refreshWeather } = useWeather();
   
-  const [clothes, setClothes] = useState<ClothingItem[]>([]);
+  const [filteredClothes, setFilteredClothes] = useState<ClothingItem[]>([]);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isRecommendationFavorited, setIsRecommendationFavorited] = useState(false);
 
+  // 只在组件初始化时加载一次数据
   useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    // 当数据库数据更新时，同步本地状态
-    setClothes(clothing);
+    const loadInitialData = async () => {
+      try {
+        await refreshData();
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      }
+    };
     
-    // 设置默认用户
-    if (users.length > 0 && !selectedUser) {
-      const defaultUser: User = users.find((user: User) => user.isDefault) || users[0];
-      setSelectedUser(defaultUser);
-    }
-  }, [clothing, users, selectedUser]);
+    loadInitialData();
+  }, []); // 空依赖数组，只执行一次
 
-  const loadData = async () => {
-    try {
-      await refreshData();
-    } catch (error) {
-      console.error('Error loading data:', error);
+  useEffect(() => {
+    if (users.length > 0 && !selectedUser) {
+      setSelectedUser(users[0]);
     }
-  };
+  }, [users]);
+
+  // 生成新推荐时重置收藏状态
+  useEffect(() => {
+    setIsRecommendationFavorited(false);
+  }, [recommendation]);
 
   const generateRecommendation = async () => {
-    if (!selectedUser || clothes.length === 0) {
+    if (!selectedUser || clothing.length === 0) {
       Alert.alert('提示', '请先添加用户和衣物');
       return;
     }
@@ -98,12 +101,38 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
       const outfit = generateOutfit(categorizedClothes);
       
       if (outfit.length === 0) {
-        Alert.alert('抱歉', '没有找到合适的搭配，请添加更多衣物');
+        // 检查缺少哪些基本分类
+        const missingCategories = [];
+        const requiredCategories = {
+          '上衣': ['上衣'],
+          '下装': ['下装', '裤子', '裙子'],
+          '鞋子': ['鞋子']
+        };
+        
+        for (const [requiredType, categoryNames] of Object.entries(requiredCategories)) {
+          let hasAny = false;
+          for (const categoryName of categoryNames) {
+            if (categorizedClothes[categoryName] && categorizedClothes[categoryName].length > 0) {
+              hasAny = true;
+              break;
+            }
+          }
+          if (!hasAny) {
+            missingCategories.push(requiredType);
+          }
+        }
+        
+        const missingText = missingCategories.length > 0 
+          ? `缺少以下分类的衣物：${missingCategories.join('、')}`
+          : '没有找到合适的搭配';
+          
+        Alert.alert('无法生成搭配', `${missingText}。请添加更多衣物后重试。`);
         setLoading(false);
         return;
       }
 
       setRecommendation({
+        name: generateOutfitName(outfit),
         outfit,
         reason: generateRecommendationReason(),
         weather: weather
@@ -127,7 +156,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
     else season = 'winter';
 
     // 根据季节筛选衣物（这里简化处理）
-    return clothes.filter(item => {
+    return clothing.filter(item => {
       if (season === 'summer') {
         return !item.name.includes('羽绒') && !item.name.includes('毛衣') && !item.name.includes('厚');
       } else if (season === 'winter') {
@@ -172,33 +201,67 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
   const generateOutfit = (categorizedClothes: { [key: string]: ClothingItem[] }) => {
     const outfit: ClothingItem[] = [];
     
-    // 基本搭配逻辑：上衣 + 下装 + 鞋子
-    const priorities = ['上衣', '裤子', '裙子', '鞋子', '外套', '配饰'];
+    // 定义必需的基本分类
+    const requiredCategories = {
+      '上衣': ['上衣'],
+      '下装': ['下装', '裤子', '裙子'], // 下装可以是下装、裤子或裙子
+      '鞋子': ['鞋子']
+    };
     
-    priorities.forEach(category => {
+    // 可选分类
+    const optionalCategories = ['外套', '配饰', '内衣'];
+    
+    // 确保每个必需分类都有至少一件衣物
+    for (const [requiredType, categoryNames] of Object.entries(requiredCategories)) {
+      let selectedItem: ClothingItem | null = null;
+      let allCandidates: ClothingItem[] = [];
+      
+      // 收集所有候选衣物
+      for (const categoryName of categoryNames) {
+        if (categorizedClothes[categoryName] && categorizedClothes[categoryName].length > 0) {
+          allCandidates.push(...categorizedClothes[categoryName]);
+        }
+      }
+      
+      if (allCandidates.length === 0) {
+        // 如果没有找到必需分类的衣物，搭配失败
+        console.log(`没有找到 ${requiredType} 分类的衣物`);
+        return []; // 返回空数组表示搭配失败
+      }
+      
+      // 选择活跃度最高的衣物（加上随机性）
+      const weightedItems = allCandidates.map(item => ({
+        ...item,
+        weight: (item.activity_score || 0) + Math.random() * 30
+      }));
+      
+      weightedItems.sort((a, b) => b.weight - a.weight);
+      selectedItem = weightedItems[0];
+      
+      if (selectedItem) {
+        outfit.push(selectedItem);
+      }
+    }
+    
+    // 添加可选分类的衣物
+    optionalCategories.forEach(category => {
       if (categorizedClothes[category] && categorizedClothes[category].length > 0) {
-        // 优先选择活跃度高的衣物，但也有随机性
         const items = categorizedClothes[category];
         const weightedItems = items.map(item => ({
           ...item,
-          weight: (item.activity_score || 0) + Math.random() * 50
+          weight: (item.activity_score || 0) + Math.random() * 20
         }));
         
         weightedItems.sort((a, b) => b.weight - a.weight);
         
-        // 避免重复选择同类型（裤子和裙子只选一个）
-        if (category === '裙子' && outfit.some(item => item.category_name === '裤子')) {
-          return;
+        // 随机决定是否添加可选单品（70%概率）
+        if (Math.random() > 0.3 && outfit.length < 5) {
+          outfit.push(weightedItems[0]);
         }
-        if (category === '裤子' && outfit.some(item => item.category_name === '裙子')) {
-          return;
-        }
-        
-        outfit.push(weightedItems[0]);
       }
     });
 
-    return outfit.slice(0, 5); // 最多5件单品
+    return outfit;
   };
 
   const generateRecommendationReason = () => {
@@ -218,9 +281,103 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
       }
     }
     
+    // 检查搭配的完整性
+    if (recommendation && recommendation.outfit.length >= 3) {
+      const categories = new Set(recommendation.outfit.map(item => 
+        item.category_name || item.category || '其他'
+      ));
+      
+      if (categories.has('上衣') && (categories.has('下装') || categories.has('裤子') || categories.has('裙子')) && categories.has('鞋子')) {
+        reasons.push('为您搭配了完整的上衣、下装和鞋子组合');
+      }
+      
+      if (categories.has('外套')) {
+        reasons.push('搭配了外套增强层次感');
+      }
+      
+      if (categories.has('配饰')) {
+        reasons.push('添加了配饰让整体更加精致');
+      }
+    }
+    
     reasons.push('基于您的穿搭习惯和衣物活跃度推荐');
     
-    return reasons.join('，');
+    return reasons.join('，') || '为您精心搭配的今日穿搭';
+  };
+
+  const generateOutfitName = (outfit: ClothingItem[]) => {
+    const currentMonth = new Date().getMonth() + 1;
+    const currentHour = new Date().getHours();
+    
+    // 获取季节
+    let season: string;
+    if (currentMonth >= 3 && currentMonth <= 5) season = '春';
+    else if (currentMonth >= 6 && currentMonth <= 8) season = '夏';
+    else if (currentMonth >= 9 && currentMonth <= 11) season = '秋';
+    else season = '冬';
+    
+    // 获取时段
+    let timeOfDay: string;
+    if (currentHour < 10) timeOfDay = '清晨';
+    else if (currentHour < 14) timeOfDay = '午间';
+    else if (currentHour < 18) timeOfDay = '午后';
+    else timeOfDay = '晚间';
+    
+    // 分析搭配风格
+    const categories = outfit.map(item => item.category_name || item.category || '其他');
+    const colors = outfit.map(item => item.color).filter(Boolean);
+    const brands = outfit.map(item => item.brand).filter(Boolean);
+    
+    // 风格词汇库
+    const styleWords = {
+      casual: ['休闲', '舒适', '日常', '轻松'],
+      formal: ['正式', '商务', '优雅', '精致'],
+      sporty: ['运动', '活力', '动感', '青春'],
+      chic: ['时尚', '潮流', '摩登', '个性'],
+      cozy: ['温暖', '柔软', '惬意', '居家'],
+      fresh: ['清新', '简约', '明朗', '干净']
+    };
+    
+    // 天气相关词汇
+    const weatherWords: string[] = [];
+    if (weather) {
+      if (weather.temperature < 10) weatherWords.push('保暖');
+      else if (weather.temperature > 25) weatherWords.push('清爽');
+      
+      if (weather.condition.includes('晴')) weatherWords.push('阳光');
+      else if (weather.condition.includes('雨')) weatherWords.push('雨日');
+      else if (weather.condition.includes('云')) weatherWords.push('悠然');
+    }
+    
+    // 根据衣物特征确定风格
+    let styleCategory: keyof typeof styleWords = 'casual';
+    if (categories.includes('外套') && (outfit.some(item => item.name.includes('西装') || item.name.includes('衬衫')))) {
+      styleCategory = 'formal';
+    } else if (outfit.some(item => item.name.includes('运动') || item.name.includes('休闲'))) {
+      styleCategory = 'sporty';
+    } else if (outfit.some(item => item.name.includes('毛衣') || item.name.includes('针织'))) {
+      styleCategory = 'cozy';
+    } else if (colors.includes('白色') && outfit.length <= 3) {
+      styleCategory = 'fresh';
+    } else if (brands.length > 0 || categories.includes('配饰')) {
+      styleCategory = 'chic';
+    }
+    
+    // 生成名称
+    const styleWord = styleWords[styleCategory][Math.floor(Math.random() * styleWords[styleCategory].length)];
+    const weatherWord = weatherWords.length > 0 ? weatherWords[Math.floor(Math.random() * weatherWords.length)] : '';
+    
+    // 名称模板
+    const templates = [
+      `${season}日${timeOfDay}${styleWord}搭配`,
+      `${weatherWord}${season}日穿搭`,
+      `${timeOfDay}${styleWord}Look`,
+      `${season}季${styleWord}风格`,
+      `今日${styleWord}造型`,
+      `${weatherWord ? weatherWord + '天' : season + '日'}的${styleWord}搭配`
+    ];
+    
+    return templates[Math.floor(Math.random() * templates.length)];
   };
 
   const handleSaveOutfit = async () => {
@@ -228,7 +385,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
 
     try {
       const outfitData = {
-        name: `${new Date().toLocaleDateString()}的推荐搭配`,
+        name: recommendation.name,
         user_id: selectedUser.id,
         clothingIds: recommendation.outfit.map(item => item.id),
         date: new Date().toISOString(),
@@ -246,6 +403,33 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
     } catch (error) {
       console.error('Error saving outfit:', error);
       Alert.alert('错误', '保存搭配失败，请重试');
+    }
+  };
+
+  const handleFavoriteRecommendation = async () => {
+    if (!recommendation || !selectedUser) return;
+
+    try {
+      const outfitData = {
+        name: recommendation.name,
+        user_id: selectedUser.id,
+        clothingIds: recommendation.outfit.map(item => item.id),
+        date: new Date().toISOString(),
+        imageUri: '', // 可以生成拼图或让用户拍照
+        occasion: '收藏',
+        weather: weather ? `${weather.temperature}°C ${weather.condition}` : '',
+        notes: recommendation.reason,
+        is_favorite: true, // 直接设置为收藏
+        isVisible: true
+      };
+
+      await addOutfit(outfitData);
+      setIsRecommendationFavorited(true);
+
+      Alert.alert('收藏成功', '推荐搭配已收藏到我的穿搭中');
+    } catch (error) {
+      console.error('Error favoriting recommendation:', error);
+      Alert.alert('错误', '收藏失败，请重试');
     }
   };
 
@@ -367,12 +551,16 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
                   size={24}
                 />
                 <IconButton
-                  icon="heart-outline"
-                  onPress={handleSaveOutfit}
+                  icon={isRecommendationFavorited ? "heart" : "heart-outline"}
+                  onPress={isRecommendationFavorited ? undefined : handleFavoriteRecommendation}
                   size={24}
+                  iconColor={isRecommendationFavorited ? theme.colors.error : theme.colors.text}
                 />
               </View>
             </View>
+            
+            {/* 穿搭名称 */}
+            <Text style={styles.outfitName}>{recommendation.name}</Text>
             
             <Paragraph style={styles.recommendationReason}>
               {recommendation.reason}
@@ -403,7 +591,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
       )}
 
       {/* 空状态 */}
-      {clothes.length === 0 && (
+      {clothing.length === 0 && (
         <View style={commonStyles.emptyState}>
           <Ionicons 
             name="shirt-outline" 
@@ -575,6 +763,12 @@ const styles = StyleSheet.create({
   clothingDetail: {
     fontSize: 12,
     color: theme.colors.textSecondary,
+  },
+
+  outfitName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: theme.spacing.sm,
   },
 });
 
