@@ -155,11 +155,7 @@ const StatisticsScreen = ({ navigation }: StatisticsScreenProps) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>数据统计</Text>
-      </View>
-
+    <View style={styles.container}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -280,7 +276,7 @@ const StatisticsScreen = ({ navigation }: StatisticsScreenProps) => {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
 import { commonStyles } from '../styles/commonStyles';
 import { useDatabase } from '../services/DatabaseContext';
+import VirtualTryOn from '../components/VirtualTryOn';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList, ClothingItem, User } from '../types';
 import { WeatherInfo } from '../services/WeatherService';
@@ -56,6 +57,7 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
   const [loading, setLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isRecommendationFavorited, setIsRecommendationFavorited] = useState(false);
+  const [showVirtualTryOn, setShowVirtualTryOn] = useState(false);
 
   // 只在组件初始化时加载一次数据
   useEffect(() => {
@@ -570,18 +572,26 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
               {recommendation.outfit.map(renderClothingItem)}
             </View>
 
-            <View style={commonStyles.buttonRow}>
+            <View style={styles.buttonContainer}>
               <Button
                 mode="outlined"
                 onPress={generateRecommendation}
-                style={[commonStyles.secondaryButton, commonStyles.buttonHalf]}
+                style={[commonStyles.secondaryButton, styles.buttonThird]}
               >
                 重新推荐
               </Button>
               <Button
                 mode="contained"
+                onPress={() => setShowVirtualTryOn(true)}
+                style={[commonStyles.primaryButton, styles.buttonThird]}
+                icon="shirt"
+              >
+                试穿效果
+              </Button>
+              <Button
+                mode="contained"
                 onPress={handleSaveOutfit}
-                style={[commonStyles.primaryButton, commonStyles.buttonHalf]}
+                style={[commonStyles.primaryButton, styles.buttonThird]}
               >
                 保存搭配
               </Button>
@@ -613,6 +623,17 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
         </View>
       )}
       </ScrollView>
+
+      {/* 虚拟试穿效果模态框 */}
+      {recommendation && selectedUser && (
+        <VirtualTryOn
+          visible={showVirtualTryOn}
+          onDismiss={() => setShowVirtualTryOn(false)}
+          user={selectedUser}
+          outfit={recommendation.outfit}
+          outfitName={recommendation.name}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -769,6 +790,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: theme.spacing.sm,
+  },
+
+  // 试穿效果按钮容器
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.md,
+  },
+
+  buttonThird: {
+    flex: 1,
+    marginHorizontal: theme.spacing.xs,
   },
 });
 
