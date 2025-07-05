@@ -121,11 +121,8 @@ const ClothingDetailScreen = ({ route, navigation }: ClothingDetailScreenProps) 
   };
 
   const handleOutfitPress = (outfit: Outfit) => {
-    // 导航到穿搭详情页面，使用通用导航
-    (navigation as any).navigate('Outfit', {
-      screen: 'OutfitDetail',
-      params: { outfit }
-    });
+    // 导航到穿搭详情页面，在同一个Stack内导航
+    navigation.navigate('OutfitDetail', { outfit });
   };
 
   const handleToggleFavorite = async (outfit: Outfit) => {

@@ -147,7 +147,7 @@ export async function callOpenAIVirtualTryOn(
     // 获取分析结果
     const imageData = analysisResponse.output
       .filter((output) => output.type === "image_generation_call")
-      .map((output) => output.result);
+      .map((output) => (output as any).result);
 
     if (imageData.length > 0) {
       const imageBase64 = imageData[0] as string;

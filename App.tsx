@@ -25,43 +25,61 @@ import { WeatherProvider } from './src/services/WeatherContext';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
+// 通用的导航栏配置
+const defaultScreenOptions = {
+  headerShown: true,
+  headerStyle: { 
+    backgroundColor: theme.colors.primary,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  headerTintColor: theme.colors.textLight,
+  headerTitleStyle: {
+    color: theme.colors.textLight,
+    fontWeight: 600 as const,
+  },
+  headerBackTitleVisible: false,
+};
+
 // 衣柜相关页面堆栈
 function WardrobeStack() {
   return (
-    <Stack.Navigator screenOptions={{ 
-      headerShown: false,
-      headerStyle: { backgroundColor: theme.colors.primary } 
-    }}>
+    <Stack.Navigator 
+      screenOptions={defaultScreenOptions}
+    >
       <Stack.Screen 
         name="WardrobeMain" 
         component={WardrobeScreen} 
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false 
+        }}
       />
       <Stack.Screen 
         name="AddClothing" 
         component={AddClothingScreen} 
         options={{ 
-          headerShown: true,
           title: '添加衣物',
-          headerTintColor: theme.colors.textLight
         }}
       />
       <Stack.Screen 
         name="ClothingDetail" 
         component={ClothingDetailScreen as any} 
         options={{ 
-          headerShown: true,
           title: '衣物详情',
-          headerTintColor: theme.colors.textLight
+        }}
+      />
+      <Stack.Screen 
+        name="OutfitDetail" 
+        component={OutfitDetailScreen as any} 
+        options={{ 
+          title: '穿搭详情',
         }}
       />
       <Stack.Screen 
         name="Camera" 
         component={CameraScreen as any} 
         options={{ 
-          headerShown: true,
           title: '拍照',
-          headerTintColor: theme.colors.textLight
         }}
       />
     </Stack.Navigator>
@@ -71,22 +89,28 @@ function WardrobeStack() {
 // 穿搭相关页面堆栈
 function OutfitStack() {
   return (
-    <Stack.Navigator screenOptions={{ 
-      headerShown: false,
-      headerStyle: { backgroundColor: theme.colors.primary } 
-    }}>
+    <Stack.Navigator 
+      screenOptions={defaultScreenOptions}
+    >
       <Stack.Screen 
         name="OutfitMain" 
         component={OutfitScreen} 
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false 
+        }}
       />
       <Stack.Screen 
         name="OutfitDetail" 
         component={OutfitDetailScreen as any} 
         options={{ 
-          headerShown: true,
           title: '穿搭详情',
-          headerTintColor: theme.colors.textLight
+        }}
+      />
+      <Stack.Screen 
+        name="ClothingDetail" 
+        component={ClothingDetailScreen as any} 
+        options={{ 
+          title: '衣物详情',
         }}
       />
     </Stack.Navigator>
@@ -96,31 +120,60 @@ function OutfitStack() {
 // 个人资料相关页面堆栈
 function ProfileStack() {
   return (
-    <Stack.Navigator screenOptions={{ 
-      headerShown: false,
-      headerStyle: { backgroundColor: theme.colors.primary } 
-    }}>
+    <Stack.Navigator 
+      screenOptions={defaultScreenOptions}
+    >
       <Stack.Screen 
         name="ProfileMain" 
         component={ProfileScreen} 
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false 
+        }}
       />
       <Stack.Screen 
         name="Statistics" 
         component={StatisticsScreen} 
         options={{ 
-          headerShown: true,
           title: '数据统计',
-          headerTintColor: theme.colors.textLight
         }}
       />
       <Stack.Screen 
         name="ShoppingList" 
         component={ShoppingListScreen} 
         options={{ 
-          headerShown: true,
           title: '购物清单',
-          headerTintColor: theme.colors.textLight
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+// 推荐页面Stack（新增，为了支持跨Stack导航到详情页）
+function RecommendStack() {
+  return (
+    <Stack.Navigator 
+      screenOptions={defaultScreenOptions}
+    >
+      <Stack.Screen 
+        name="RecommendMain" 
+        component={RecommendScreen} 
+        options={{ 
+          headerShown: false 
+        }}
+      />
+      {/* 在推荐页面也可以访问衣物详情和穿搭详情 */}
+      <Stack.Screen 
+        name="ClothingDetail" 
+        component={ClothingDetailScreen as any} 
+        options={{ 
+          title: '衣物详情',
+        }}
+      />
+      <Stack.Screen 
+        name="OutfitDetail" 
+        component={OutfitDetailScreen as any} 
+        options={{ 
+          title: '穿搭详情',
         }}
       />
     </Stack.Navigator>
@@ -170,7 +223,7 @@ function MainTabs() {
       />
       <Tab.Screen 
         name="Recommend" 
-        component={RecommendScreen} 
+        component={RecommendStack} 
         options={{ title: '推荐' }}
       />
       <Tab.Screen 

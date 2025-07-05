@@ -150,18 +150,26 @@ export type WardrobeStackParamList = {
   WardrobeMain: undefined;
   AddClothing: { categoryFilter?: string };
   ClothingDetail: { clothing: ClothingItem };
+  OutfitDetail: { outfit: Outfit };
   Camera: undefined;
 };
 
 export type OutfitStackParamList = {
   OutfitMain: undefined;
   OutfitDetail: { outfit: Outfit };
+  ClothingDetail: { clothing: ClothingItem };
 };
 
 export type ProfileStackParamList = {
   ProfileMain: undefined;
   Statistics: undefined;
   ShoppingList: undefined;
+};
+
+export type RecommendStackParamList = {
+  RecommendMain: undefined;
+  ClothingDetail: { clothing: ClothingItem };
+  OutfitDetail: { outfit: Outfit };
 };
 
 // 数据库上下文类型
