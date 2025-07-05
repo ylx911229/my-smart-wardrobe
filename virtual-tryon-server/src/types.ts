@@ -1,5 +1,6 @@
 export interface ClothingImageInput {
   imageUri: string;
+  imageBase64?: string;
   category: string;
   position: string;
   name: string;
@@ -54,7 +55,8 @@ export interface JimengAIResponse {
 }
 
 export interface ComposeImageRequest {
-  baseImage: string;
+  baseImageUri?: string;
+  baseImageBase64: string;
   clothingImages: ClothingImageInput[];
   prompt: string;
   model?: string;
@@ -100,4 +102,48 @@ export interface HealthCheckResponse {
 export interface ErrorResponse {
   success: false;
   error: string;
+}
+
+// 新增：图片分析相关类型
+export interface ClothingAnalysisRequest {
+  imageBase64: string;
+  category?: string;
+  name?: string;
+}
+
+export interface ClothingAnalysisResult {
+  success: boolean;
+  analysis?: {
+    // 基础信息
+    colors: string[];
+    materials: string[];
+    patterns: string[];
+    
+    // 适用条件
+    temperatureRange: {
+      min: number;
+      max: number;
+    };
+    weatherConditions: string[];
+    seasons: string[];
+    
+    // 风格属性
+    styles: string[];
+    occasions: string[];
+    formalityLevel: number;
+    
+    // 人群属性
+    gender: 'male' | 'female' | 'unisex';
+    ageGroups: string[];
+    bodyTypes: string[];
+    
+    // 搭配建议
+    matchingColors: string[];
+    avoidColors: string[];
+    
+    // 分析状态
+    confidence: number;
+    analyzedAt: string;
+  };
+  error?: string;
 } 

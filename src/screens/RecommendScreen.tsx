@@ -46,6 +46,7 @@ interface Recommendation {
   outfit: ClothingItem[];
   reason: string;
   weather: WeatherInfo | null;
+  score: number; // 新增：推荐分数
 }
 
 const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
@@ -137,7 +138,8 @@ const RecommendScreen = ({ navigation }: RecommendScreenProps) => {
         name: generateOutfitName(outfit),
         outfit,
         reason: generateRecommendationReason(),
-        weather: weather
+        weather: weather,
+        score: 100 // 默认分数，后续可以改进为智能评分
       });
 
     } catch (error) {

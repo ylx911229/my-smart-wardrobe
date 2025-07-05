@@ -1,17 +1,38 @@
 import fs from 'fs';
 import OpenAI from 'openai';
+import dotenv from 'dotenv';
 import { 
   ClothingImageInput, 
   CompositionOptions, 
   AIGenerationResult, 
   JimengAIRequest, 
-  JimengAIResponse 
+  JimengAIResponse,
+  ClothingAnalysisRequest,
+  ClothingAnalysisResult
 } from '../types';
+
+// 加载环境变量
+dotenv.config();
 
 // 初始化 OpenAI 客户端
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || ''
 });
+
+/**
+ * 将base64数据写入临时文件
+ */
+function writeBase64ToTempFile(base64Data: string, filename: string): string {
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    const tempPath = `/tmp/${filename}`;
+    fs.writeFileSync(tempPath, buffer);
+    return tempPath;
+  } catch (error) {
+    console.error('Error writing base64 to temp file:', error);
+    throw new Error(`Failed to write base64 data to temp file: ${filename}`);
+  }
+}
 
 /**
  * 将图像文件编码为 base64 格式
@@ -67,14 +88,14 @@ async function downloadImageFromUrl(imageUrl: string, filename: string): Promise
  * 调用 OpenAI 进行虚拟试穿图像生成
  */
 export async function callOpenAIVirtualTryOn(
-  baseImage: string,
+  baseImageBase64: string,
   clothingImages: ClothingImageInput[],
   prompt: string,
   options: CompositionOptions = {}
 ): Promise<any> {
   try {
     console.log('开始 OpenAI 虚拟试穿生成...');
-    console.log('用户照片:', baseImage);
+    console.log('用户照片 base64 长度:', baseImageBase64.length);
     console.log('衣物图片:', clothingImages.map(img => `${img.name} (${img.category})`));
     console.log('生成提示:', prompt);
     
@@ -83,61 +104,33 @@ export async function callOpenAIVirtualTryOn(
       throw new Error('OPENAI_API_KEY 环境变量未设置');
     }
 
-    // 第一步：使用 GPT-4  分析用户照片和衣物图片
+    // 第一步：使用 GPT-4 分析用户照片和衣物图片
     const analysisPrompt = generateAnalysisPrompt(clothingImages, prompt);
     
     // 准备输入内容数组
     const inputContent: any[] = [
-      { type: "text", text: analysisPrompt }
+      { type: "input_text", text: analysisPrompt }
     ];
 
-    // 处理用户照片
-    let userImagePath = baseImage;
-    if (baseImage.startsWith('http')) {
-      userImagePath = await downloadImageFromUrl(baseImage, `user_${Date.now()}.jpg`);
-    }
+    // 添加用户照片（直接使用 base64 数据）
+    inputContent.push({
+      type: "input_image",
+      image_url: `data:image/jpeg;base64,${baseImageBase64}`
+    });
 
-    // 添加用户照片（使用 base64 格式）
-    try {
-      const userImageBase64 = encodeImage(userImagePath);
-      console.log('userImageBase64', userImageBase64);
-      inputContent.push({
-        type: "input_image",
-        image_url: {
-          url: `data:image/jpeg;base64,${userImageBase64}`
-        }
-      });
-    } catch (error) {
-      console.log('用户照片编码失败:', error);
-      throw new Error('用户照片处理失败');
-    }
-
-    // 处理衣物图片
+    // 处理衣物图片（使用 base64 数据）
     for (const clothingImage of clothingImages) {
-      let imagePath = clothingImage.imageUri;
-      
-      // 如果是 URL，先下载到本地
-      if (imagePath.startsWith('http')) {
-        imagePath = await downloadImageFromUrl(
-          imagePath, 
-          `clothing_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`
-        );
-      }
-
-      // 添加衣物图片
-      try {
-        const clothingImageBase64 = encodeImage(imagePath);
+      if (clothingImage.imageBase64) {
         inputContent.push({
           type: "input_image",
-          image_url: {
-            url: `data:image/jpeg;base64,${clothingImageBase64}`
-          }
+          image_url: `data:image/jpeg;base64,${clothingImage.imageBase64}`
         });
-      } catch (error) {
-        console.log(`衣物图片编码失败: ${clothingImage.name}`, error);
-        continue; // 跳过失败的图片
+      } else {
+        console.warn(`衣物图片 ${clothingImage.name} 缺少 base64 数据`);
       }
     }
+
+    console.log('inputContent', inputContent);
 
     // 调用 GPT-4 进行分析
     const analysisResponse = await openai.responses.create({
@@ -152,86 +145,61 @@ export async function callOpenAIVirtualTryOn(
     });
 
     // 获取分析结果
-    // const analysisResult = analysisResponse.choices[0]?.message?.content;
-
     const imageData = analysisResponse.output
       .filter((output) => output.type === "image_generation_call")
       .map((output) => output.result);
 
     if (imageData.length > 0) {
       const imageBase64 = imageData[0] as string;
-      const fs = await import("fs");
-      fs.writeFileSync("gift-basket.png", Buffer.from(imageBase64, "base64"));
+      
+      // 保存生成的图片到临时文件
+      const tempFilename = `generated_${Date.now()}.png`;
+      const tempPath = writeBase64ToTempFile(imageBase64, tempFilename);
+      
+      // 返回结果
+      return {
+        success: true,
+        imageUrl: `data:image/png;base64,${imageBase64}`,
+        metadata: {
+          baseImage: 'base64',
+          clothingCount: clothingImages.length,
+          prompt: prompt,
+          model: options.model || 'gpt-4o',
+          mode: options.mode || 'image_composition',
+          timestamp: new Date().toISOString(),
+          processingTime: 'N/A',
+          fallback: false,
+          tempPath: tempPath
+        }
+      };
     } else {
       console.log('analysisResponse.output', analysisResponse.output);
+      throw new Error('OpenAI 未返回生成的图像');
     }
 
-    if (!analysisResponse) {
-      throw new Error('GPT-4  分析失败');
-    }
-
-    console.log('图像分析结果:', analysisResponse);
-
-    // 第二步：基于分析结果生成 DALL-E 提示词
-    // const dallePrompt = generateDallePrompt(analysisResult, clothingImages, prompt);
-    // console.log('DALL-E 提示词:', dallePrompt);
-
-    // // 第三步：使用 DALL-E 3 生成虚拟试穿图像
-    // const imageResponse = await openai.images.generate({
-    //   model: "dall-e-3",
-    //   prompt: dallePrompt,
-    //   n: 1,
-    //   size: "1024x1024", // 使用固定的有效尺寸
-    //   quality: "hd"
-    // });
-
-    // 清理临时文件
-    try {
-      if (userImagePath !== baseImage && userImagePath.startsWith('/tmp/')) {
-        fs.unlinkSync(userImagePath);
-      }
-      for (const clothingImage of clothingImages) {
-        if (clothingImage.imageUri.startsWith('/tmp/')) {
-          fs.unlinkSync(clothingImage.imageUri);
-        }
-      }
-    } catch (cleanupError) {
-      console.log('清理临时文件时出错:', cleanupError);
-    }
-
-    // // 处理 DALL-E 响应
-    // const generatedImageUrl = imageResponse.data?.[0]?.url;
-    // if (generatedImageUrl) {
-    //   return {
-    //     success: true,
-    //     imageUrl: generatedImageUrl,
-    //     metadata: {
-    //       baseImage: baseImage,
-    //       clothingCount: clothingImages.length,
-    //       prompt: dallePrompt,
-    //       model: options.model || 'gpt-4o + dall-e-3',
-    //       mode: 'openai_virtual_tryon',
-    //       timestamp: new Date().toISOString(),
-    //       processingTime: 'OpenAI处理时间',
-    //       response: analysisResult,
-    //       size: "1024x1024"
-    //     }
-    //   };
-    // } else {
-    //   throw new Error('DALL-E 3 未返回图像URL');
-    // }
-    
   } catch (error) {
-    console.error('OpenAI 虚拟试穿生成失败:', error);
+    console.error('OpenAI Virtual Try-On Error:', error);
+    
+    // 返回错误结果
     return {
       success: false,
-      error: (error as Error).message || 'OpenAI 虚拟试穿生成失败'
+      error: error instanceof Error ? error.message : 'OpenAI 生成失败',
+      metadata: {
+        baseImage: 'base64',
+        clothingCount: clothingImages.length,
+        prompt: prompt,
+        model: options.model || 'gpt-4o',
+        mode: options.mode || 'image_composition',
+        timestamp: new Date().toISOString(),
+        processingTime: 'N/A',
+        fallback: false
+      }
     };
   }
 }
 
 /**
- * 生成 GPT-4  分析提示词
+ * 生成 GPT-4 分析提示词
  */
 function generateAnalysisPrompt(clothingImages: ClothingImageInput[], basePrompt: string): string {
   const clothingDescriptions = clothingImages.map(item => {
@@ -257,35 +225,6 @@ ${basePrompt ? `额外要求：${basePrompt}` : ''}
 
   return prompt;
 }
-
-/**
- * 基于分析结果生成 DALL-E 提示词
- */
-// function generateDallePrompt(analysisResult: string, clothingImages: ClothingImageInput[], basePrompt: string): string {
-//   const clothingList = clothingImages.map(item => `${item.name} (${item.category})`).join(', ');
-  
-//   const prompt = `
-// Create a photorealistic image of a person wearing the following clothing items: ${clothingList}.
-
-// Based on the analysis: ${analysisResult}
-
-// Requirements:
-// - Photorealistic, high-quality image
-// - Professional photography style
-// - Natural lighting and shadows
-// - Clothing should fit naturally on the body
-// - Maintain realistic proportions
-// - Clean, simple background
-// - Full body or upper body shot as appropriate
-// - High resolution and detail
-
-// ${basePrompt ? `Additional requirements: ${basePrompt}` : ''}
-
-// Style: Fashion photography, professional, clean, modern.
-// `.trim();
-
-//   return prompt;
-// }
 
 /**
  * 根据衣物类别获取穿着位置描述
@@ -464,4 +403,153 @@ function getClothingPosition(category: string): string {
 //       error: (error as Error).message || 'OpenAI 文字转图像生成失败'
 //     };
 //   }
-// } 
+// }
+
+/**
+ * 使用 OpenAI GPT-4 Vision API 分析衣物图片
+ */
+export async function analyzeClothingImage(
+  request: ClothingAnalysisRequest
+): Promise<ClothingAnalysisResult> {
+  try {
+    console.log('开始衣物图片分析...');
+    console.log('图片 base64 长度:', request.imageBase64.length);
+    console.log('衣物分类:', request.category);
+    console.log('衣物名称:', request.name);
+
+    // 检查 OpenAI API Key
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY 环境变量未设置');
+    }
+
+    // 构建分析提示词
+    const analysisPrompt = `
+请详细分析这件衣物，并以JSON格式返回分析结果。请按照以下格式：
+
+{
+  "colors": ["主要颜色1", "主要颜色2"],
+  "materials": ["材质1", "材质2"],
+  "patterns": ["图案/款式1", "图案/款式2"],
+  "temperatureRange": {
+    "min": 最低适合温度(摄氏度),
+    "max": 最高适合温度(摄氏度)
+  },
+  "weatherConditions": ["晴天", "多云", "雨天等"],
+  "seasons": ["春季", "夏季", "秋季", "冬季"],
+  "styles": ["休闲", "正式", "运动", "商务", "街头", "复古等"],
+  "occasions": ["日常", "工作", "聚会", "运动", "约会", "正式场合等"],
+  "formalityLevel": 1到5的数字(1最休闲,5最正式),
+  "gender": "male"或"female"或"unisex",
+  "ageGroups": ["青少年", "青年", "中年", "老年"],
+  "bodyTypes": ["瘦", "标准", "丰满", "运动型等"],
+  "matchingColors": ["搭配颜色1", "搭配颜色2"],
+  "avoidColors": ["避免颜色1", "避免颜色2"],
+  "confidence": 0到1的数字(分析置信度)
+}
+
+分析要求：
+1. 仔细观察衣物的颜色、材质、款式
+2. 根据衣物类型推断适合的温度范围
+3. 考虑衣物的正式程度和适合场合
+4. 分析适合的人群特征
+5. 推荐搭配和避免的颜色
+6. 给出分析的置信度评分
+
+衣物分类：${request.category || '未指定'}
+衣物名称：${request.name || '未指定'}
+`;
+
+    // 调用 OpenAI Vision API
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-vision-preview",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: analysisPrompt
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${request.imageBase64}`,
+                detail: "high"
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 1500,
+      temperature: 0.1 // 降低温度以获得更一致的结果
+    });
+
+    const analysisText = response.choices[0]?.message?.content;
+    if (!analysisText) {
+      throw new Error('AI 分析返回空结果');
+    }
+
+    console.log('AI 分析原始结果:', analysisText);
+
+    // 尝试解析 JSON 结果
+    let analysisData;
+    try {
+      // 提取 JSON 部分（可能包含在代码块中）
+      const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       analysisText.match(/```\s*([\s\S]*?)\s*```/) ||
+                       [null, analysisText];
+      const jsonString = jsonMatch[1] || analysisText;
+      
+      analysisData = JSON.parse(jsonString.trim());
+    } catch (parseError) {
+      console.error('JSON 解析错误:', parseError);
+      throw new Error('AI 分析结果格式错误');
+    }
+
+    // 验证和补充分析数据
+    const validatedAnalysis = validateAndCleanAnalysis(analysisData);
+
+    return {
+      success: true,
+      analysis: {
+        ...validatedAnalysis,
+        analyzedAt: new Date().toISOString()
+      }
+    };
+
+  } catch (error) {
+    console.error('衣物分析错误:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '分析失败'
+    };
+  }
+}
+
+/**
+ * 验证和清理分析数据
+ */
+function validateAndCleanAnalysis(data: any): any {
+  return {
+    colors: Array.isArray(data.colors) ? data.colors : [],
+    materials: Array.isArray(data.materials) ? data.materials : [],
+    patterns: Array.isArray(data.patterns) ? data.patterns : [],
+    temperatureRange: {
+      min: typeof data.temperatureRange?.min === 'number' ? data.temperatureRange.min : 0,
+      max: typeof data.temperatureRange?.max === 'number' ? data.temperatureRange.max : 30
+    },
+    weatherConditions: Array.isArray(data.weatherConditions) ? data.weatherConditions : ['晴天'],
+    seasons: Array.isArray(data.seasons) ? data.seasons : ['全季'],
+    styles: Array.isArray(data.styles) ? data.styles : ['休闲'],
+    occasions: Array.isArray(data.occasions) ? data.occasions : ['日常'],
+    formalityLevel: typeof data.formalityLevel === 'number' ? 
+      Math.max(1, Math.min(5, data.formalityLevel)) : 2,
+    gender: ['male', 'female', 'unisex'].includes(data.gender) ? data.gender : 'unisex',
+    ageGroups: Array.isArray(data.ageGroups) ? data.ageGroups : ['青年'],
+    bodyTypes: Array.isArray(data.bodyTypes) ? data.bodyTypes : ['标准'],
+    matchingColors: Array.isArray(data.matchingColors) ? data.matchingColors : [],
+    avoidColors: Array.isArray(data.avoidColors) ? data.avoidColors : [],
+    confidence: typeof data.confidence === 'number' ? 
+      Math.max(0, Math.min(1, data.confidence)) : 0.8
+  };
+} 

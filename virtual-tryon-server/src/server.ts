@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
-import { composeImage, healthCheck } from './controllers/imageController';
+import { composeImage, healthCheck, analyzeClothing } from './controllers/imageController';
 
 // 加载环境变量
 dotenv.config();
@@ -25,6 +25,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 路由
 app.post('/api/compose-image', composeImage);
+app.post('/api/analyze-clothing', analyzeClothing);
 // app.post('/api/generate-image', generateImage);
 // app.get('/api/clothing-positions', getClothingPositions);
 app.get('/health', healthCheck);
@@ -43,6 +44,7 @@ app.listen(port, () => {
   console.log(`🚀 Virtual Try-On API Server (OpenAI) running at http://localhost:${port}`);
   console.log(`📋 Health check: http://localhost:${port}/health`);
   console.log(`🎨 Image composition: POST http://localhost:${port}/api/compose-image`);
+  console.log(`🧠 Clothing analysis: POST http://localhost:${port}/api/analyze-clothing`);
   // console.log(`🖼️  Text generation: POST http://localhost:${port}/api/generate-image`);
   console.log(`📚 查看配置说明: OPENAI_SETUP.md`);
 });

@@ -6,6 +6,7 @@ import {
   Alert,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import {
   TextInput,
@@ -14,15 +15,17 @@ import {
   Title,
   Menu,
   Text,
-  Chip
+  Chip,
+  ProgressBar
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { theme } from '../styles/theme';
 import { useDatabase } from '../services/DatabaseContext';
+import { analyzeClothingImage, generateDefaultTags } from '../services/ClothingAnalysisService';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import type { WardrobeStackParamList, Category } from '../types';
+import type { WardrobeStackParamList, Category, ClothingTags } from '../types';
 
 type AddClothingScreenNavigationProp = StackNavigationProp<
   WardrobeStackParamList,
@@ -47,9 +50,12 @@ const AddClothingScreen = ({ navigation }: AddClothingScreenProps) => {
   const { addClothing } = useDatabase();
   
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [categoryMenuVisible, setCategoryMenuVisible] = useState(false);
+  const [smartTags, setSmartTags] = useState<ClothingTags | null>(null);
   
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -159,11 +165,80 @@ const AddClothingScreen = ({ navigation }: AddClothingScreenProps) => {
       }
 
       if (!result.canceled) {
-        handleInputChange('photo_uri', result.assets[0].uri);
+        const imageUri = result.assets[0].uri;
+        handleInputChange('photo_uri', imageUri);
+        
+        // 自动分析图片
+        await analyzeImage(imageUri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('错误', '获取照片失败，请重试');
+    }
+  };
+
+  const analyzeImage = async (imageUri: string) => {
+    setAnalyzing(true);
+    setAnalysisProgress(0);
+    
+    try {
+      // 模拟进度更新
+      const progressInterval = setInterval(() => {
+        setAnalysisProgress(prev => {
+          if (prev >= 0.9) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 0.1;
+        });
+      }, 200);
+
+      const analysisResult = await analyzeClothingImage(
+        imageUri,
+        selectedCategory?.name,
+        formData.name
+      );
+
+      clearInterval(progressInterval);
+      setAnalysisProgress(1);
+
+      if (analysisResult.success && analysisResult.analysis) {
+        setSmartTags(analysisResult.analysis);
+        
+        // 如果AI分析出了颜色，自动填充到表单
+        if (analysisResult.analysis.colors.length > 0 && !formData.color) {
+          handleInputChange('color', analysisResult.analysis.colors[0]);
+        }
+        
+        Alert.alert(
+          '分析完成',
+          '已为您的衣物自动生成智能标签，包含颜色、风格、适合场合等信息。',
+          [{ text: '确定' }]
+        );
+      } else {
+        // 分析失败，使用默认标签
+        const defaultTags = generateDefaultTags(selectedCategory?.name, formData.name);
+        setSmartTags(defaultTags);
+        
+        Alert.alert(
+          '分析失败',
+          '图片分析失败，已为您生成基础标签。您可以手动编辑衣物信息。',
+          [{ text: '确定' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error analyzing image:', error);
+      const defaultTags = generateDefaultTags(selectedCategory?.name, formData.name);
+      setSmartTags(defaultTags);
+      
+      Alert.alert(
+        '分析失败',
+        '图片分析失败，已为您生成基础标签。您可以手动编辑衣物信息。',
+        [{ text: '确定' }]
+      );
+    } finally {
+      setAnalyzing(false);
+      setAnalysisProgress(0);
     }
   };
 
@@ -207,14 +282,15 @@ const AddClothingScreen = ({ navigation }: AddClothingScreenProps) => {
         tags: [],
         season: '全季',
         isVisible: true,
-        wearCount: 0
+        wearCount: 0,
+        smartTags: smartTags || generateDefaultTags(selectedCategory.name, formData.name)
       };
       
       await addClothing(clothingData);
       
       Alert.alert(
         '成功',
-        '衣物添加成功！',
+        '衣物添加成功！' + (smartTags?.aiAnalyzed ? '已自动生成智能标签。' : ''),
         [{ text: '确定', onPress: () => navigation.goBack() }]
       );
     } catch (error) {
@@ -223,6 +299,74 @@ const AddClothingScreen = ({ navigation }: AddClothingScreenProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderSmartTagsPreview = () => {
+    if (!smartTags) return null;
+
+    return (
+      <Card style={styles.smartTagsCard}>
+        <Card.Content>
+          <Title style={styles.sectionTitle}>智能标签 {smartTags.aiAnalyzed ? '🤖' : '📝'}</Title>
+          
+          {smartTags.colors.length > 0 && (
+            <View style={styles.tagSection}>
+              <Text style={styles.tagLabel}>颜色:</Text>
+              <View style={styles.tagContainer}>
+                {smartTags.colors.map((color, index) => (
+                  <Chip key={index} style={styles.tag} compact>{color}</Chip>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          {smartTags.styles.length > 0 && (
+            <View style={styles.tagSection}>
+              <Text style={styles.tagLabel}>风格:</Text>
+              <View style={styles.tagContainer}>
+                {smartTags.styles.map((style, index) => (
+                  <Chip key={index} style={styles.tag} compact>{style}</Chip>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          {smartTags.occasions.length > 0 && (
+            <View style={styles.tagSection}>
+              <Text style={styles.tagLabel}>适合场合:</Text>
+              <View style={styles.tagContainer}>
+                {smartTags.occasions.map((occasion, index) => (
+                  <Chip key={index} style={styles.tag} compact>{occasion}</Chip>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          <View style={styles.tagSection}>
+            <Text style={styles.tagLabel}>适合温度:</Text>
+            <Text style={styles.tagValue}>
+              {smartTags.temperatureRange.min}°C - {smartTags.temperatureRange.max}°C
+            </Text>
+          </View>
+          
+          <View style={styles.tagSection}>
+            <Text style={styles.tagLabel}>正式程度:</Text>
+            <Text style={styles.tagValue}>
+              {smartTags.formalityLevel}/5 {'⭐'.repeat(smartTags.formalityLevel)}
+            </Text>
+          </View>
+          
+          {smartTags.aiAnalyzed && (
+            <View style={styles.tagSection}>
+              <Text style={styles.tagLabel}>AI分析置信度:</Text>
+              <Text style={styles.tagValue}>
+                {Math.round(smartTags.confidence * 100)}%
+              </Text>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
+    );
   };
 
   return (
@@ -239,7 +383,21 @@ const AddClothingScreen = ({ navigation }: AddClothingScreenProps) => {
             </View>
           )}
         </TouchableOpacity>
+        
+        {/* 分析进度 */}
+        {analyzing && (
+          <View style={styles.analysisContainer}>
+            <View style={styles.analysisHeader}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.analysisText}>正在分析图片...</Text>
+            </View>
+            <ProgressBar progress={analysisProgress} color={theme.colors.primary} />
+          </View>
+        )}
       </Card>
+
+      {/* 智能标签预览 */}
+      {renderSmartTagsPreview()}
 
       {/* 基本信息 */}
       <Card style={styles.formCard}>
@@ -335,10 +493,10 @@ const AddClothingScreen = ({ navigation }: AddClothingScreenProps) => {
           mode="contained"
           onPress={handleSubmit}
           loading={loading}
-          disabled={loading}
+          disabled={loading || analyzing}
           style={styles.submitButton}
         >
-          添加衣物
+          {analyzing ? '正在分析...' : '添加衣物'}
         </Button>
       </View>
     </ScrollView>
@@ -376,6 +534,56 @@ const styles = StyleSheet.create({
   
   photoPlaceholderText: {
     marginTop: theme.spacing.sm,
+    color: theme.colors.textSecondary,
+  },
+  
+  analysisContainer: {
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.background,
+  },
+  
+  analysisHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  
+  analysisText: {
+    marginLeft: theme.spacing.sm,
+    color: theme.colors.primary,
+    fontWeight: '500',
+  },
+  
+  smartTagsCard: {
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+  },
+  
+  tagSection: {
+    marginBottom: theme.spacing.sm,
+  },
+  
+  tagLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs,
+  },
+  
+  tagContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+  },
+  
+  tag: {
+    backgroundColor: theme.colors.primary + '20',
+    marginRight: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
+  },
+  
+  tagValue: {
+    fontSize: 14,
     color: theme.colors.textSecondary,
   },
   

@@ -1,5 +1,6 @@
 import type { ClothingItem, User } from '../types';
 import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
 // 网络配置
 const getApiBaseUrl = () => {
@@ -10,7 +11,7 @@ const getApiBaseUrl = () => {
     // } else if (Platform.OS === 'android') {
     //   return 'http://10.0.2.2:3001'; // Android模拟器使用10.0.2.2
     // } else {
-      return 'http://10.71.227.73:3001'; // 真机使用电脑的局域网IP
+      return 'http://192.168.0.12:3001'; // 真机使用电脑的局域网IP
     // }
   } else {
     return 'https://your-production-api.com'; // 生产环境API地址
@@ -31,6 +32,7 @@ export interface VirtualTryOnRequest {
 
 export interface ClothingImageInput {
   imageUri: string;
+  imageBase64?: string; // 添加base64数据字段
   category: string;
   position: string; // 衣物在身体上的位置
   name: string;
@@ -93,6 +95,56 @@ export class VirtualTryOnService {
   }
 
   /**
+   * 将本地图片读成base64格式
+   */
+  private static async readImageAsBase64(imageUri: string): Promise<string> {
+    try {
+      console.log('读取图片为base64:', imageUri);
+      
+      // 使用expo-file-system读取图片为base64
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      return base64;
+    } catch (error) {
+      console.error('读取图片为base64失败:', error);
+      throw new Error(`读取图片失败: ${imageUri}`);
+    }
+  }
+
+  /**
+   * 准备衣物输入数据，包含base64编码
+   */
+  private static async prepareClothingInputsWithBase64(outfit: ClothingItem[]): Promise<ClothingImageInput[]> {
+    const results: ClothingImageInput[] = [];
+    
+    for (const item of outfit) {
+      const imageUri = item.imageUri || item.photo_uri || '';
+      const category = item.category_name || item.category || '其他';
+      
+      try {
+        // 读取图片为base64
+        const imageBase64 = await this.readImageAsBase64(imageUri);
+        
+        results.push({
+          imageUri,
+          imageBase64,
+          category,
+          position: this.getCategoryPosition(category),
+          name: item.name
+        });
+      } catch (error) {
+        console.error(`读取衣物图片失败: ${item.name}`, error);
+        // 跳过读取失败的图片，或者可以选择抛出错误
+        throw new Error(`读取衣物图片失败: ${item.name}`);
+      }
+    }
+    
+    return results;
+  }
+
+  /**
    * 生成虚拟试穿效果
    */
   static async generateTryOnEffect(request: VirtualTryOnRequest): Promise<VirtualTryOnResult> {
@@ -119,14 +171,17 @@ export class VirtualTryOnService {
         throw new Error(`无法连接到AI服务器: ${connectionTest.message}`);
       }
 
-      // 将衣物按类别分组并生成输入数据
-      const clothingInputs = this.prepareClothingInputs(outfit);
+      // 读取用户照片为base64
+      const userPhotoBase64 = await this.readImageAsBase64(user.photo_uri);
+      
+      // 将衣物按类别分组并生成输入数据（包含base64）
+      const clothingInputs = await this.prepareClothingInputsWithBase64(outfit);
       
       // 生成针对图像合成的prompt
       const prompt = this.generateImageCompositionPrompt(clothingInputs, outfitName);
 
       // 调用图像合成AI
-      const result = await this.callImageCompositionAI(user.photo_uri, clothingInputs, prompt);
+      const result = await this.callImageCompositionAI(user.photo_uri, userPhotoBase64, clothingInputs, prompt);
       
       return {
         imageUrl: result.imageUrl,
@@ -158,22 +213,6 @@ export class VirtualTryOnService {
         error: errorMessage
       };
     }
-  }
-
-  /**
-   * 准备衣物输入数据
-   */
-  private static prepareClothingInputs(outfit: ClothingItem[]): ClothingImageInput[] {
-    return outfit.map(item => {
-      const category = item.category_name || item.category || '其他';
-      
-      return {
-        imageUri: item.imageUri || item.photo_uri || '',
-        category: category,
-        position: this.getCategoryPosition(category),
-        name: item.name
-      };
-    });
   }
 
   /**
@@ -233,12 +272,13 @@ export class VirtualTryOnService {
    */
   private static async callImageCompositionAI(
     userPhotoUri: string, 
+    userPhotoBase64: string,
     clothingInputs: ClothingImageInput[], 
     prompt: string
   ): Promise<{ imageUrl: string }> {
     try {
       // 调用支持多图输入的AI服务
-      const response = await this.generateImageComposition(userPhotoUri, clothingInputs, prompt);
+      const response = await this.generateImageComposition(userPhotoUri, userPhotoBase64, clothingInputs, prompt);
       
       return response;
       
@@ -253,16 +293,18 @@ export class VirtualTryOnService {
    */
   private static async generateImageComposition(
     userPhotoUri: string,
+    userPhotoBase64: string,
     clothingInputs: ClothingImageInput[],
     prompt: string
   ): Promise<{ imageUrl: string }> {
     try {
-      // 准备多图输入数据
+      // 准备多图输入数据，使用base64数据
       const requestData = {
-        baseImage: userPhotoUri, // 用户照片作为底图
+        baseImageUri: userPhotoUri, // 保留原始URI用于参考
+        baseImageBase64: userPhotoBase64, // 用户照片base64数据
         clothingImages: clothingInputs,
         prompt: prompt,
-        model: 'jimeng-3.0',
+        model: 'gpt-4.1',
         mode: 'image_composition', // 图像合成模式
         width: 512,
         height: 768,
@@ -273,6 +315,15 @@ export class VirtualTryOnService {
           lightingAdjustment: true // 自动调整光照一致性
         }
       };
+
+      console.log('发送请求数据:', {
+        ...requestData,
+        baseImageBase64: `[base64 data length: ${userPhotoBase64.length}]`,
+        clothingImages: clothingInputs.map(img => ({
+          ...img,
+          imageBase64: img.imageBase64 ? `[base64 data length: ${img.imageBase64.length}]` : 'undefined'
+        }))
+      });
 
       // 创建AbortController用于超时控制
       const controller = new AbortController();

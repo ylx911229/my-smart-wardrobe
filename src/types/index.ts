@@ -1,4 +1,38 @@
 // 基础类型定义
+export interface ClothingTags {
+  // 基础信息
+  colors: string[];           // 主要颜色
+  materials: string[];        // 材质
+  patterns: string[];         // 图案/款式
+  
+  // 适用条件
+  temperatureRange: {         // 适合温度范围
+    min: number;             // 最低温度
+    max: number;             // 最高温度
+  };
+  weatherConditions: string[]; // 适合天气条件
+  seasons: string[];          // 适合季节
+  
+  // 风格属性
+  styles: string[];           // 风格标签
+  occasions: string[];        // 适合场合
+  formalityLevel: number;     // 正式程度 (1-5)
+  
+  // 人群属性
+  gender: 'male' | 'female' | 'unisex'; // 性别适用
+  ageGroups: string[];        // 适合年龄段
+  bodyTypes: string[];        // 适合体型
+  
+  // 搭配建议
+  matchingColors: string[];   // 搭配颜色
+  avoidColors: string[];      // 避免颜色
+  
+  // 分析状态
+  aiAnalyzed: boolean;        // 是否经过AI分析
+  confidence: number;         // AI分析置信度
+  analyzedAt?: string;        // 分析时间
+}
+
 export interface ClothingItem {
   id: string;
   name: string;
@@ -25,6 +59,9 @@ export interface ClothingItem {
   rating?: number;
   createdAt: string;
   updatedAt: string;
+  
+  // 新增：智能标签
+  smartTags?: ClothingTags;
 }
 
 export interface Outfit {

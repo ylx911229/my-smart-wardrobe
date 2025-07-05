@@ -4,9 +4,12 @@ import {
   GenerateImageRequest, 
   ClothingPositionsResponse,
   HealthCheckResponse,
-  ErrorResponse 
+  ErrorResponse,
+  ClothingImageInput,
+  CompositionOptions,
+  ClothingAnalysisRequest
 } from '../types';
-import { callOpenAIVirtualTryOn } from '../services/aiService';
+import { callOpenAIVirtualTryOn, analyzeClothingImage } from '../services/aiService';
 
 /**
  * 图像合成API端点
@@ -14,7 +17,8 @@ import { callOpenAIVirtualTryOn } from '../services/aiService';
 export async function composeImage(req: Request<{}, any, ComposeImageRequest>, res: Response): Promise<void> {
   try {
     const { 
-      baseImage, 
+      baseImageUri,
+      baseImageBase64, 
       clothingImages, 
       prompt, 
       model, 
@@ -26,10 +30,10 @@ export async function composeImage(req: Request<{}, any, ComposeImageRequest>, r
     } = req.body;
     
     // 验证必需参数
-    if (!baseImage) {
+    if (!baseImageBase64) {
       res.status(400).json({
         success: false,
-        error: '缺少用户照片（baseImage）'
+        error: '缺少用户照片的base64数据（baseImageBase64）'
       } as ErrorResponse);
       return;
     }
@@ -50,25 +54,26 @@ export async function composeImage(req: Request<{}, any, ComposeImageRequest>, r
       return;
     }
     
-    // 验证衣物图片数据
+    // 验证衣物图片数据，确保都有base64数据
     for (let i = 0; i < clothingImages.length; i++) {
       const item = clothingImages[i];
-      if (!item?.imageUri || !item?.category || !item?.position) {
+      if (!item?.imageBase64 || !item?.category || !item?.position) {
         res.status(400).json({
           success: false,
-          error: `衣物图片 ${i + 1} 缺少必要信息（imageUri, category, position）`
+          error: `衣物图片 ${i + 1} 缺少必要信息（imageBase64, category, position）`
         } as ErrorResponse);
         return;
       }
     }
     
     console.log('Processing image composition request...');
-    console.log('Base image:', baseImage);
+    console.log('Base image URI:', baseImageUri);
+    console.log('Base image base64 length:', baseImageBase64.length);
     console.log('Clothing items:', clothingImages.length);
     console.log('Prompt:', prompt);
     console.log('Composition settings:', compositionSettings);
     
-    const result = await callOpenAIVirtualTryOn(baseImage, clothingImages, prompt, {
+    const result = await callOpenAIVirtualTryOn(baseImageBase64, clothingImages, prompt, {
       model: model || 'jimeng-3.0',
       mode: mode || 'image_composition',
       width: width || 512,
@@ -168,4 +173,49 @@ export function healthCheck(req: Request, res: Response<HealthCheckResponse>): v
       'image-composition': 'available'
     }
   });
+}
+
+/**
+ * 分析衣物图片
+ */
+export async function analyzeClothing(req: Request, res: Response) {
+  try {
+    console.log('收到衣物分析请求');
+    
+    const { imageBase64, category, name }: ClothingAnalysisRequest = req.body;
+    
+    // 验证请求参数
+    if (!imageBase64) {
+      return res.status(400).json({
+        success: false,
+        error: '缺少图片数据'
+      });
+    }
+
+    // 验证 base64 格式
+    const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
+    if (!base64Pattern.test(imageBase64)) {
+      return res.status(400).json({
+        success: false,
+        error: '图片格式不正确'
+      });
+    }
+
+    // 调用 AI 分析服务
+    const analysisResult = await analyzeClothingImage({
+      imageBase64,
+      ...(category && { category }),
+      ...(name && { name })
+    });
+
+    // 返回分析结果
+    return res.json(analysisResult);
+
+  } catch (error) {
+    console.error('衣物分析错误:', error);
+    return res.status(500).json({
+      success: false,
+      error: '服务器内部错误'
+    });
+  }
 } 
