@@ -10,7 +10,7 @@ const getApiBaseUrl = () => {
     // } else if (Platform.OS === 'android') {
     //   return 'http://10.0.2.2:3001'; // Android模拟器使用10.0.2.2
     // } else {
-      return 'http://10.71.225.146:3001'; // 真机使用电脑的局域网IP
+      return 'http://10.71.227.73:3001'; // 真机使用电脑的局域网IP
     // }
   } else {
     return 'https://your-production-api.com'; // 生产环境API地址
@@ -114,6 +114,7 @@ export class VirtualTryOnService {
 
       // 测试网络连接
       const connectionTest = await this.testConnection();
+      console.log('connectionTest', connectionTest);
       if (!connectionTest.connected) {
         throw new Error(`无法连接到AI服务器: ${connectionTest.message}`);
       }

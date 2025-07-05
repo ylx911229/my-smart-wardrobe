@@ -33,6 +33,8 @@ export interface AIGenerationResult {
     timestamp?: string;
     processingTime?: string;
     fallback?: boolean;
+    response?: string;
+    size?: string;
   };
 }
 
