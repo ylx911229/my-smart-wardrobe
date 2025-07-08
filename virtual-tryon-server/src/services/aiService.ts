@@ -143,6 +143,8 @@ export async function callOpenAIVirtualTryOn(
       ],
       tools: [{ type: "image_generation" }],
     });
+    console.log('analysisResponse', JSON.stringify(analysisResponse));
+
 
     // 获取分析结果
     const imageData = analysisResponse.output
@@ -173,7 +175,7 @@ export async function callOpenAIVirtualTryOn(
         }
       };
     } else {
-      console.log('analysisResponse.output', analysisResponse.output);
+      console.log('analysisResponse.output', JSON.stringify(analysisResponse.output));
       throw new Error('OpenAI 未返回生成的图像');
     }
 
@@ -223,7 +225,7 @@ ${basePrompt ? `额外要求：${basePrompt}` : ''}
 请用中文回答，并且要详细具体。
 `.trim();
 
-  return prompt;
+  return basePrompt;
 }
 
 /**

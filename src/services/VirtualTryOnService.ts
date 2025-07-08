@@ -11,7 +11,7 @@ const getApiBaseUrl = () => {
     // } else if (Platform.OS === 'android') {
     //   return 'http://10.0.2.2:3001'; // Android模拟器使用10.0.2.2
     // } else {
-      return 'http://192.168.0.12:3001'; // 真机使用电脑的局域网IP
+      return 'http://10.71.230.50:3001'; // 真机使用电脑的局域网IP
     // }
   } else {
     return 'https://your-production-api.com'; // 生产环境API地址
@@ -304,7 +304,7 @@ export class VirtualTryOnService {
         baseImageBase64: userPhotoBase64, // 用户照片base64数据
         clothingImages: clothingInputs,
         prompt: prompt,
-        model: 'gpt-4.1',
+        model: 'gpt-4.1-nano',
         mode: 'image_composition', // 图像合成模式
         width: 512,
         height: 768,
@@ -327,7 +327,7 @@ export class VirtualTryOnService {
 
       // 创建AbortController用于超时控制
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时（AI生成需要更长时间）
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 300秒超时（AI生成需要更长时间）
       
       const response = await fetch(getApiBaseUrl() + '/api/compose-image', {
         method: 'POST',
